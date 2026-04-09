@@ -1,1 +1,1 @@
-//halo semua
+//halo semua ditmawa ngentot kontol anjing mati aja
