@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <?php
 // data dummy (nanti diganti dari database)
 $barang = [
@@ -42,3 +43,6 @@ $barang = [
 
 </body>
 </html>
+=======
+//halo semua ditmawa ngentot kontol anjing mati aja
+>>>>>>> dd53a05f865bbe33ff2f031488c33cdb61f999a2
