@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Waktu pembuatan: 09 Apr 2026 pada 14.58
--- Versi server: 10.4.28-MariaDB
--- Versi PHP: 8.2.4
+-- Waktu pembuatan: 03 Bulan Mei 2026 pada 12.15
+-- Versi server: 10.4.32-MariaDB
+-- Versi PHP: 8.2.12
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -24,39 +24,46 @@ SET time_zone = "+00:00";
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `documents`
+-- Struktur dari tabel `items`
 --
 
-CREATE TABLE `documents` (
+CREATE TABLE `items` (
   `id` int(11) NOT NULL,
-  `renter_id` int(11) DEFAULT NULL,
-  `ktp` varchar(255) DEFAULT NULL,
-  `ktm` varchar(255) DEFAULT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `nama_barang` varchar(100) DEFAULT NULL,
+  `deskripsi` text DEFAULT NULL,
+  `harga` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Dumping data untuk tabel `items`
+--
+
+INSERT INTO `items` (`id`, `user_id`, `nama_barang`, `deskripsi`, `harga`, `created_at`) VALUES
+(8, 10, 'Motor CBR', 'good', 10000, '2026-05-03 10:04:43');
+
 -- --------------------------------------------------------
 
 --
--- Struktur dari tabel `renters`
+-- Struktur dari tabel `rentals`
 --
 
-CREATE TABLE `renters` (
+CREATE TABLE `rentals` (
   `id` int(11) NOT NULL,
   `user_id` int(11) DEFAULT NULL,
-  `type` enum('mahasiswa','vendor') DEFAULT NULL
+  `item_id` int(11) DEFAULT NULL,
+  `tanggal_mulai` date DEFAULT NULL,
+  `tanggal_selesai` date DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- --------------------------------------------------------
-
 --
--- Struktur dari tabel `roles`
+-- Dumping data untuk tabel `rentals`
 --
 
-CREATE TABLE `roles` (
-  `id` int(11) NOT NULL,
-  `name` varchar(50) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+INSERT INTO `rentals` (`id`, `user_id`, `item_id`, `tanggal_mulai`, `tanggal_selesai`, `created_at`) VALUES
+(2, 9, 8, '2026-05-04', '2026-05-05', '2026-05-03 10:06:32');
 
 -- --------------------------------------------------------
 
@@ -66,166 +73,84 @@ CREATE TABLE `roles` (
 
 CREATE TABLE `users` (
   `id` int(11) NOT NULL,
-  `username` varchar(100) DEFAULT NULL,
-  `email` varchar(100) DEFAULT NULL,
-  `password` varchar(255) DEFAULT NULL,
-  `role_id` int(11) DEFAULT NULL,
-  `status` enum('pending','approved','rejected') DEFAULT 'pending',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+  `username` varchar(100) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `role` enum('admin','user') DEFAULT 'user',
+  `status` enum('pending','approved') DEFAULT 'pending'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- --------------------------------------------------------
-
 --
--- Struktur dari tabel `user_profiles`
+-- Dumping data untuk tabel `users`
 --
 
-CREATE TABLE `user_profiles` (
-  `id` int(11) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `full_name` varchar(150) DEFAULT NULL,
-  `nickname` varchar(100) DEFAULT NULL,
-  `photo` varchar(255) DEFAULT NULL,
-  `address` text DEFAULT NULL,
-  `birth_place` varchar(100) DEFAULT NULL,
-  `birth_date` date DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Struktur dari tabel `verifications`
---
-
-CREATE TABLE `verifications` (
-  `id` int(11) NOT NULL,
-  `user_id` int(11) DEFAULT NULL,
-  `approved_by` int(11) DEFAULT NULL,
-  `status` enum('pending','approved','rejected') DEFAULT 'pending',
-  `notes` text DEFAULT NULL,
-  `approved_at` timestamp NULL DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+INSERT INTO `users` (`id`, `username`, `password`, `role`, `status`) VALUES
+(7, 'admin', '0192023a7bbd73250516f069df18b500', 'admin', 'approved'),
+(9, 'jon', '006cb570acdab0e0bfc8e3dcb7bb4edf', 'user', 'approved'),
+(10, 'fajar', '24bc50d85ad8fa9cda686145cf1f8aca', 'user', 'approved');
 
 --
 -- Indexes for dumped tables
 --
 
 --
--- Indeks untuk tabel `documents`
+-- Indeks untuk tabel `items`
 --
-ALTER TABLE `documents`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `renter_id` (`renter_id`);
-
---
--- Indeks untuk tabel `renters`
---
-ALTER TABLE `renters`
+ALTER TABLE `items`
   ADD PRIMARY KEY (`id`),
   ADD KEY `user_id` (`user_id`);
 
 --
--- Indeks untuk tabel `roles`
+-- Indeks untuk tabel `rentals`
 --
-ALTER TABLE `roles`
-  ADD PRIMARY KEY (`id`);
+ALTER TABLE `rentals`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `user_id` (`user_id`),
+  ADD KEY `item_id` (`item_id`);
 
 --
 -- Indeks untuk tabel `users`
 --
 ALTER TABLE `users`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `username` (`username`),
-  ADD UNIQUE KEY `email` (`email`),
-  ADD KEY `role_id` (`role_id`);
-
---
--- Indeks untuk tabel `user_profiles`
---
-ALTER TABLE `user_profiles`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`);
-
---
--- Indeks untuk tabel `verifications`
---
-ALTER TABLE `verifications`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `user_id` (`user_id`);
+  ADD PRIMARY KEY (`id`);
 
 --
 -- AUTO_INCREMENT untuk tabel yang dibuang
 --
 
 --
--- AUTO_INCREMENT untuk tabel `documents`
+-- AUTO_INCREMENT untuk tabel `items`
 --
-ALTER TABLE `documents`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `items`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
--- AUTO_INCREMENT untuk tabel `renters`
+-- AUTO_INCREMENT untuk tabel `rentals`
 --
-ALTER TABLE `renters`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT untuk tabel `roles`
---
-ALTER TABLE `roles`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `rentals`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT untuk tabel `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT untuk tabel `user_profiles`
---
-ALTER TABLE `user_profiles`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT untuk tabel `verifications`
---
-ALTER TABLE `verifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
 
 --
 -- Ketidakleluasaan untuk tabel pelimpahan (Dumped Tables)
 --
 
 --
--- Ketidakleluasaan untuk tabel `documents`
+-- Ketidakleluasaan untuk tabel `items`
 --
-ALTER TABLE `documents`
-  ADD CONSTRAINT `documents_ibfk_1` FOREIGN KEY (`renter_id`) REFERENCES `renters` (`id`);
+ALTER TABLE `items`
+  ADD CONSTRAINT `items_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
 
 --
--- Ketidakleluasaan untuk tabel `renters`
+-- Ketidakleluasaan untuk tabel `rentals`
 --
-ALTER TABLE `renters`
-  ADD CONSTRAINT `renters_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
-
---
--- Ketidakleluasaan untuk tabel `users`
---
-ALTER TABLE `users`
-  ADD CONSTRAINT `users_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`);
-
---
--- Ketidakleluasaan untuk tabel `user_profiles`
---
-ALTER TABLE `user_profiles`
-  ADD CONSTRAINT `user_profiles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
-
---
--- Ketidakleluasaan untuk tabel `verifications`
---
-ALTER TABLE `verifications`
-  ADD CONSTRAINT `verifications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`);
+ALTER TABLE `rentals`
+  ADD CONSTRAINT `rentals_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `rentals_ibfk_2` FOREIGN KEY (`item_id`) REFERENCES `items` (`id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
