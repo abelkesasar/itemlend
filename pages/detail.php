@@ -60,7 +60,20 @@ $isOwner = isset($_SESSION['user']) && $_SESSION['user']['id'] == $item['user_id
 <?php endif; ?>
 
 <br><br>
-<a href="index.php">Kembali</a>
 
+<a href="actions/add_wishlist.php?id=<?= $item['id'] ?>">
+    Wishlist
+</a>
+<br><br>
+<a href="index.php">Kembali</a>
+<br><br>
+
+<a href="
+index.php?page=chat
+&id=<?= $item['id'] ?>
+&user=<?= $item['user_id'] ?>
+">
+    Chat Vendor
+</a>
 </body>
 </html>

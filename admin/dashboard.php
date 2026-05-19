@@ -2,7 +2,10 @@
 session_start();
 require '../config/db.php';
 
-if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
+if (
+    !isset($_SESSION['user']) ||
+    $_SESSION['user']['role'] != 'admin'
+) {
     header("Location: ../index.php?page=login");
     exit;
 }
@@ -13,11 +16,19 @@ $pending_users = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'
 $total_items   = $conn->query("SELECT COUNT(*) FROM items")->fetchColumn();
 $total_rentals = $conn->query("SELECT COUNT(*) FROM rentals")->fetchColumn();
 
-// Get pending users (latest 5)
-$pending_list = $conn->query("SELECT * FROM users WHERE status='pending' ORDER BY id DESC LIMIT 5")->fetchAll(PDO::FETCH_ASSOC);
+// Get pending users
+$pending_list = $conn->query("
+    SELECT * FROM users 
+    WHERE status='pending' 
+    ORDER BY id DESC
+")->fetchAll(PDO::FETCH_ASSOC);
 
-// Get latest items (latest 3)
-$latest_items = $conn->query("SELECT * FROM items ORDER BY created_at DESC LIMIT 3")->fetchAll(PDO::FETCH_ASSOC);
+// Get latest items
+$latest_items = $conn->query("
+    SELECT * FROM items 
+    ORDER BY id DESC 
+    LIMIT 3
+")->fetchAll(PDO::FETCH_ASSOC);
 ?>
 <!DOCTYPE html>
 <html lang="id">

@@ -62,7 +62,12 @@ switch($page) {
     case 'edit_barang':
                require 'pages/edit_barang.php';
                 break;
-                
+    case 'wishlist':
+              require 'pages/wishlist.php';
+                break;
+    case 'chat':
+               require 'pages/chat.php';
+                break;
     default:
         echo "<div class='d-flex justify-content-between align-items-center mb-4'>";
         echo "<h2>Daftar Barang</h2>";
