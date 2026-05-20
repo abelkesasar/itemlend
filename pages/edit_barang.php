@@ -1,37 +1,17 @@
 <?php
-// FIX SESSION (biar gak error)
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// FIX PATH DATABASE (anti error path)
-require __DIR__ . '/../config/db.php';
-
-// CEK LOGIN
-if (!isset($_SESSION['user'])) {
-    die("Harus login!");
-}
-
-// CEK ID
-if (!isset($_GET['id'])) {
-    die("ID tidak ditemukan");
-}
+session_start();
+require 'config/db.php';
 
 $id = $_GET['id'];
 
-// AMBIL DATA BARANG
 $stmt = $conn->prepare("SELECT * FROM items WHERE id = ?");
 $stmt->execute([$id]);
-$item = $stmt->fetch();
 
-// CEK DATA ADA
-if (!$item) {
-    die("Barang tidak ditemukan");
-}
+$item = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// 🚨 CEK OWNER (INI YANG PALING PENTING)
-if ($_SESSION['user']['id'] != $item['user_id']) {
-    die("Akses ditolak!");
+if(!$item){
+    echo "Barang tidak ditemukan";
+    exit;
 }
 ?>
 
@@ -39,28 +19,104 @@ if ($_SESSION['user']['id'] != $item['user_id']) {
 <html>
 <head>
     <title>Edit Barang</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
 
-<h2>Edit Barang</h2>
+<body class="bg-gray-100">
 
-<form action="actions/update_barang.php" method="POST">
-    <input type="hidden" name="id" value="<?= $item['id'] ?>">
+<div class="max-w-2xl mx-auto py-10">
 
-    <label>Nama Barang:</label><br>
-    <input type="text" name="nama_barang" value="<?= htmlspecialchars($item['nama_barang']) ?>" required><br><br>
+    <div class="bg-white p-8 rounded-3xl shadow-lg">
 
-    <label>Deskripsi:</label><br>
-    <textarea name="deskripsi" required><?= htmlspecialchars($item['deskripsi']) ?></textarea><br><br>
+        <h1 class="text-3xl font-bold mb-8">
+            Edit Barang
+        </h1>
 
-    <label>Harga per Hari:</label><br>
-    <input type="number" name="harga" value="<?= $item['harga'] ?>" required><br><br>
+        <form
+        action="actions/edit_barang.php"
+        method="POST"
+        enctype="multipart/form-data">
 
-    <button type="submit">Update</button>
-</form>
+            <input type="hidden" name="id" value="<?= $item['id'] ?>">
 
-<br>
-<a href="index.php">Kembali</a>
+            <div class="mb-5">
+
+                <label class="font-semibold">
+                    Nama Barang
+                </label>
+
+                <input
+                type="text"
+                name="nama_barang"
+                value="<?= htmlspecialchars($item['nama_barang']) ?>"
+                class="w-full border p-3 rounded-xl mt-2">
+
+            </div>
+
+            <div class="mb-5">
+
+                <label class="font-semibold">
+                    Deskripsi
+                </label>
+
+                <textarea
+                name="deskripsi"
+                class="w-full border p-3 rounded-xl mt-2 h-32"><?= htmlspecialchars($item['deskripsi']) ?></textarea>
+
+            </div>
+
+            <div class="mb-5">
+
+                <label class="font-semibold">
+                    Harga
+                </label>
+
+                <input
+                type="number"
+                name="harga"
+                value="<?= $item['harga'] ?>"
+                class="w-full border p-3 rounded-xl mt-2">
+
+            </div>
+
+            <div class="mb-5">
+
+                <label class="font-semibold">
+                    Gambar Lama
+                </label>
+
+                <img
+                src="uploads/<?= $item['gambar'] ?>"
+                class="w-full h-60 object-cover rounded-2xl mt-3">
+            </div>
+
+            <div class="mb-5">
+
+                <label class="font-semibold">
+                    Upload Gambar Baru
+                </label>
+
+                <input
+                type="file"
+                name="gambar"
+                class="w-full border p-3 rounded-xl mt-2">
+
+            </div>
+
+            <button
+            type="submit"
+            class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-2xl">
+
+                Update Barang
+
+            </button>
+
+        </form>
+
+    </div>
+
+</div>
 
 </body>
 </html>

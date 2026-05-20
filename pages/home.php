@@ -2,7 +2,7 @@
 require 'config/db.php';
 
 $stmt = $conn->query("
-    SELECT items.*, users.username 
+    SELECT items.*, users.username
     FROM items
     JOIN users ON items.user_id = users.id
     ORDER BY items.id DESC
@@ -12,169 +12,220 @@ $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ItemLend</title>
 
-    <style>
-        body{
-            font-family: Arial;
-            background:#f5f5f5;
-            margin:0;
-        }
-
-        .navbar{
-            background:white;
-            padding:15px 30px;
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            border-bottom:1px solid #ddd;
-        }
-
-        .logo{
-            font-size:30px;
-            font-weight:bold;
-            color:#2563eb;
-        }
-
-        .menu a{
-            text-decoration:none;
-            margin-left:10px;
-            padding:8px 15px;
-            border-radius:5px;
-        }
-
-        .login{
-            border:1px solid #2563eb;
-            color:#2563eb;
-        }
-
-        .register{
-            background:#2563eb;
-            color:white;
-        }
-
-        .container{
-            width:90%;
-            margin:auto;
-            margin-top:30px;
-        }
-
-        .grid{
-            display:grid;
-            grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
-            gap:20px;
-        }
-
-        .card{
-            background:white;
-            border-radius:10px;
-            padding:15px;
-            box-shadow:0 2px 5px rgba(0,0,0,0.1);
-        }
-
-        .card img{
-            width:100%;
-            height:200px;
-            object-fit:cover;
-            border-radius:10px;
-        }
-
-        .nama{
-            font-size:20px;
-            font-weight:bold;
-            margin-top:10px;
-        }
-
-        .harga{
-            color:green;
-            margin-top:5px;
-        }
-
-        .owner{
-            color:gray;
-            font-size:14px;
-            margin-top:5px;
-        }
-
-        .btn{
-            display:inline-block;
-            margin-top:10px;
-            background:#2563eb;
-            color:white;
-            padding:8px 15px;
-            border-radius:5px;
-            text-decoration:none;
-        }
-
-        .kosong{
-            background:white;
-            padding:20px;
-            border-radius:10px;
-        }
-    </style>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
 
-<div class="navbar">
-    <div class="logo">ItemLend</div>
+<body class="bg-gray-100">
 
-    <div class="menu">
-        <a class="login" href="index.php?page=login">Login</a>
-        <a class="register" href="index.php?page=register">Register</a>
+<!-- NAVBAR -->
+<nav class="bg-white shadow-md sticky top-0 z-50">
+
+    <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+
+        <div>
+            <h1 class="text-3xl font-bold text-blue-600">
+                ItemLend
+            </h1>
+        </div>
+
+        <div class="flex items-center gap-4">
+
+            <a
+            href="index.php?page=login"
+            class="border border-blue-500 text-blue-500 px-5 py-2 rounded-xl hover:bg-blue-50 transition">
+
+                Login
+
+            </a>
+
+            <a
+            href="index.php?page=register"
+            class="bg-blue-500 text-white px-5 py-2 rounded-xl hover:bg-blue-600 transition">
+
+                Register
+
+            </a>
+
+        </div>
+
     </div>
-</div>
 
-<div class="container">
+</nav>
 
-    <h1>Daftar Barang</h1>
+<!-- HERO -->
+<section class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-20">
+
+    <div class="max-w-7xl mx-auto px-6">
+
+        <h1 class="text-5xl font-bold leading-tight">
+            Sewa Barang Jadi Lebih Mudah
+        </h1>
+
+        <p class="mt-5 text-lg opacity-90 max-w-2xl">
+            Cari barang yang kamu butuhkan atau sewakan barang milikmu
+            dengan aman dan praktis bersama ItemLend.
+        </p>
+
+        <div class="mt-8 flex gap-4">
+
+            <a
+            href="index.php?page=register"
+            class="bg-white text-blue-600 px-6 py-3 rounded-xl font-semibold hover:bg-gray-100 transition">
+
+                Mulai Sekarang
+
+            </a>
+
+            <a
+            href="#barang"
+            class="border border-white px-6 py-3 rounded-xl font-semibold hover:bg-white hover:text-blue-600 transition">
+
+                Lihat Barang
+
+            </a>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- CONTENT -->
+<section id="barang" class="max-w-7xl mx-auto px-6 py-12">
+
+    <div class="flex items-center justify-between mb-8">
+
+        <div>
+            <h2 class="text-4xl font-bold text-gray-800">
+                Daftar Barang
+            </h2>
+
+            <p class="text-gray-500 mt-2">
+                Temukan barang terbaik untuk disewa
+            </p>
+        </div>
+
+    </div>
 
     <?php if(count($items) > 0): ?>
 
-        <div class="grid">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
 
-            <?php foreach($items as $item): ?>
+        <?php foreach($items as $item): ?>
 
-                <div class="card">
+<?php
+$gambar = "uploads/default.png";
 
-                    <?php if($item['gambar'] != ''): ?>
-                        <img src="uploads/<?= $item['gambar'] ?>">
-                    <?php else: ?>
-                        <img src="https://via.placeholder.com/300x200">
-                    <?php endif; ?>
+if(isset($item['gambar']) && $item['gambar'] != ''){
 
-                    <div class="nama">
-                        <?= $item['nama_barang'] ?>
-                    </div>
+    if(file_exists(__DIR__ . "/uploads/" . $item['gambar'])){
 
-                    <div class="harga">
-                        Rp <?= number_format($item['harga']) ?> / hari
-                    </div>
+        $gambar = "uploads/" . $item['gambar'];
 
-                    <div class="owner">
-                        Pemilik: <?= $item['username'] ?>
-                    </div>
+    }
 
-                    <a class="btn" href="index.php?page=detail&id=<?= $item['id'] ?>">
-                        Detail
-                    </a>
+}
+?>
 
-                </div>
+<div class="bg-white rounded-3xl overflow-hidden shadow-lg hover:shadow-2xl transition duration-300">
 
-            <?php endforeach; ?>
+    <!-- GAMBAR -->
+    <div class="w-full h-60 bg-gray-200 overflow-hidden">
+
+        <img
+        src="<?= $gambar ?>"
+        alt="gambar barang"
+        class="w-full h-full object-cover">
+
+    </div>
+
+    <!-- ISI -->
+    <div class="p-5">
+
+        <h2 class="text-2xl font-bold text-gray-800">
+            <?= htmlspecialchars($item['nama_barang']) ?>
+        </h2>
+
+        <p class="text-gray-500 mt-2">
+            <?= htmlspecialchars($item['deskripsi']) ?>
+        </p>
+
+        <div class="mt-4 text-2xl font-bold text-green-600">
+            Rp <?= number_format($item['harga']) ?>
+        </div>
+
+        <div class="mt-2 text-sm text-gray-500">
+            <?= htmlspecialchars($item['username']) ?>
+        </div>
+
+        <a
+        href="index.php?page=detail&id=<?= $item['id'] ?>"
+        class="mt-5 block text-center bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-2xl">
+
+            Lihat Detail
+
+        </a>
+
+    </div>
+
+</div>
+
+<?php endforeach; ?>
 
         </div>
 
     <?php else: ?>
 
-        <div class="kosong">
-            Belum ada barang
+        <div class="bg-white rounded-3xl shadow-lg p-16 text-center">
+
+            <img
+            src="https://cdn-icons-png.flaticon.com/512/4076/4076549.png"
+            class="w-32 mx-auto mb-6">
+
+            <h2 class="text-3xl font-bold text-gray-700">
+                Belum Ada Barang
+            </h2>
+
+            <p class="text-gray-500 mt-3">
+                Jadilah yang pertama menambahkan barang untuk disewakan.
+            </p>
+
         </div>
 
     <?php endif; ?>
 
-</div>
+</section>
+
+<!-- FOOTER -->
+<footer class="bg-white border-t mt-16">
+
+    <div class="max-w-7xl mx-auto px-6 py-8 flex flex-col md:flex-row justify-between items-center">
+
+        <div>
+
+            <h2 class="text-2xl font-bold text-blue-600">
+                ItemLend
+            </h2>
+
+            <p class="text-gray-500 mt-2">
+                Platform penyewaan barang terpercaya
+            </p>
+
+        </div>
+
+        <div class="text-gray-400 mt-4 md:mt-0">
+            © <?= date('Y') ?> ItemLend. All rights reserved.
+        </div>
+
+    </div>
+
+</footer>
 
 </body>
 </html>

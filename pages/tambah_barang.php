@@ -1,18 +1,96 @@
 <?php
-session_start();
+if(session_status() == PHP_SESSION_NONE){
+    session_start();
+}
 ?>
 
-<h2>Tambah Barang</h2>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tambah Barang</title>
 
-<form action="actions/tambah_barang.php" method="POST">
-    Nama Barang: <br>
-    <input type="text" name="nama_barang" required><br><br>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
 
-    Deskripsi: <br>
-    <textarea name="deskripsi"></textarea><br><br>
+<body class="bg-gray-100">
 
-    Harga: <br>
-    <input type="number" name="harga" required><br><br>
+<div class="max-w-2xl mx-auto mt-10 bg-white p-8 rounded-2xl shadow">
 
-    <button type="submit">Simpan</button>
-</form>
+    <h1 class="text-3xl font-bold mb-6">
+        Tambah Barang
+    </h1>
+
+    <form
+    action="actions/tambah_barang.php"
+    method="POST"
+    enctype="multipart/form-data">
+
+        <div class="mb-5">
+
+            <label class="font-semibold">
+                Nama Barang
+            </label>
+
+            <input
+            type="text"
+            name="nama_barang"
+            required
+            class="w-full border p-3 rounded-xl mt-2">
+
+        </div>
+
+        <div class="mb-5">
+
+            <label class="font-semibold">
+                Deskripsi
+            </label>
+
+            <textarea
+            name="deskripsi"
+            class="w-full border p-3 rounded-xl mt-2 h-32"></textarea>
+
+        </div>
+
+        <div class="mb-5">
+
+            <label class="font-semibold">
+                Harga
+            </label>
+
+            <input
+            type="number"
+            name="harga"
+            required
+            class="w-full border p-3 rounded-xl mt-2">
+
+        </div>
+
+        <div class="mb-5">
+
+            <label class="font-semibold">
+                Upload Gambar
+            </label>
+
+            <input
+            type="file"
+            name="gambar"
+            accept="image/*"
+            required
+            class="w-full border p-3 rounded-xl mt-2">
+
+        </div>
+
+        <button
+        type="submit"
+        class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-xl">
+
+            Simpan Barang
+
+        </button>
+
+    </form>
+
+</div>
+
+</body>
+</html>

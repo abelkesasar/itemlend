@@ -1,145 +1,144 @@
+<?php
+session_start();
+?>
+
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Register</title>
+    <title>Register - ItemLend</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body>
 
-<h1>Register</h1>
+<body class="min-h-screen bg-gradient-to-br from-indigo-500 via-blue-500 to-cyan-500 flex items-center justify-center p-6">
 
-<form action="actions/register.php"
-method="POST"
-enctype="multipart/form-data">
+    <div class="bg-white/20 backdrop-blur-lg shadow-2xl rounded-3xl overflow-hidden w-full max-w-6xl grid md:grid-cols-2">
 
-    <!-- USERNAME -->
-    <input
-    type="text"
-    name="username"
-    placeholder="Username"
-    required>
+        <!-- LEFT -->
+        <div class="hidden md:flex flex-col justify-center p-12 text-white bg-white/10">
 
-    <br><br>
+            <h1 class="text-5xl font-bold leading-tight">
+                Join ItemLend 🚀
+            </h1>
 
-    <!-- EMAIL -->
-    <input
-    type="email"
-    name="email"
-    placeholder="Email"
-    required>
+            <p class="mt-6 text-lg text-white/80">
+                Buat akun dan mulai sewakan barang atau cari barang yang kamu butuhkan.
+            </p>
 
-    <br><br>
+        </div>
 
-    <!-- NOMOR WA -->
-    <input
-    type="text"
-    name="nomor_wa"
-    placeholder="Nomor WhatsApp"
-    required>
+        <!-- RIGHT -->
+        <div class="bg-white p-10 md:p-14">
 
-    <br><br>
+            <div class="mb-8">
 
-    <!-- PASSWORD -->
-    <input
-    type="password"
-    name="password"
-    placeholder="Password"
-    required>
+                <h2 class="text-4xl font-bold text-gray-800">
+                    Register
+                </h2>
 
-    <br><br>
+                <p class="text-gray-500 mt-2">
+                    Buat akun baru
+                </p>
 
-    <!-- ALAMAT -->
-    <textarea
-    name="alamat"
-    placeholder="Alamat"
-    required></textarea>
+            </div>
 
-    <br><br>
+            <form action="actions/register.php" method="POST">
 
-    <!-- ROLE -->
-    <select name="role" id="role" required>
+                <div class="mb-4">
 
-        <option value="user">
-            User
-        </option>
+                    <label class="block font-semibold mb-2">
+                        Nama Lengkap
+                    </label>
 
-        <option value="vendor">
-            Vendor
-        </option>
+                    <input
+                    type="text"
+                    name="nama_lengkap"
+                    required
+                    class="w-full border border-gray-300 p-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
 
-    </select>
+                </div>
 
-    <br><br>
+                <div class="mb-4">
 
-    <!-- USER -->
-    <div id="userFields">
+                    <label class="block font-semibold mb-2">
+                        Username
+                    </label>
 
-        <label>Upload KTP</label>
-        <br>
+                    <input
+                    type="text"
+                    name="username"
+                    required
+                    class="w-full border border-gray-300 p-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
 
-        <input type="file" name="ktp_user">
+                </div>
 
-        <br><br>
+                <div class="mb-4">
 
-        <label>Upload KTM</label>
-        <br>
+                    <label class="block font-semibold mb-2">
+                        Email
+                    </label>
 
-        <input type="file" name="ktm_user">
+                    <input
+                    type="email"
+                    name="email"
+                    required
+                    class="w-full border border-gray-300 p-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+
+                </div>
+
+                <div class="mb-4">
+
+                    <label class="block font-semibold mb-2">
+                        Nomor WhatsApp
+                    </label>
+
+                    <input
+                    type="text"
+                    name="nomor_hp"
+                    required
+                    class="w-full border border-gray-300 p-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+
+                </div>
+
+                <div class="mb-6">
+
+                    <label class="block font-semibold mb-2">
+                        Password
+                    </label>
+
+                    <input
+                    type="password"
+                    name="password"
+                    required
+                    class="w-full border border-gray-300 p-4 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500">
+
+                </div>
+
+                <button
+                type="submit"
+                class="w-full bg-blue-500 hover:bg-blue-600 text-white py-4 rounded-2xl font-semibold text-lg transition">
+
+                    Register
+
+                </button>
+
+            </form>
+
+            <p class="text-center text-gray-500 mt-6">
+                Sudah punya akun?
+
+                <a
+                href="index.php?page=login"
+                class="text-blue-500 font-semibold hover:underline">
+
+                    Login
+
+                </a>
+            </p>
+
+        </div>
 
     </div>
-
-    <!-- VENDOR -->
-    <div id="vendorFields" style="display:none;">
-
-        <label>Upload KTP Vendor</label>
-        <br>
-
-        <input type="file" name="ktp_vendor">
-
-        <br><br>
-
-        <textarea
-        name="deskripsi_vendor"
-        placeholder="Deskripsi Vendor">
-        </textarea>
-
-    </div>
-
-    <br>
-
-    <button type="submit">
-        Register
-    </button>
-
-</form>
-
-<script>
-
-const role =
-document.getElementById('role');
-
-const userFields =
-document.getElementById('userFields');
-
-const vendorFields =
-document.getElementById('vendorFields');
-
-role.addEventListener('change', function(){
-
-    if(this.value == 'vendor'){
-
-        vendorFields.style.display = 'block';
-        userFields.style.display = 'none';
-
-    }else{
-
-        vendorFields.style.display = 'none';
-        userFields.style.display = 'block';
-
-    }
-
-});
-
-</script>
 
 </body>
 </html>

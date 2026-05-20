@@ -3,24 +3,41 @@ session_start();
 require '../config/db.php';
 
 $id = $_POST['id'];
-$nama = $_POST['nama'];
+$nama = $_POST['nama_barang'];
 $deskripsi = $_POST['deskripsi'];
 $harga = $_POST['harga'];
 
-# VALIDASI OWNER
-$stmt = $conn->prepare("SELECT user_id FROM items WHERE id=?");
+$stmt = $conn->prepare("SELECT * FROM items WHERE id = ?");
 $stmt->execute([$id]);
-$item = $stmt->fetch();
 
-if ($_SESSION['user']['id'] != $item['user_id']) {
-    die("Akses ditolak!");
+$item = $stmt->fetch(PDO::FETCH_ASSOC);
+
+$gambar = $item['gambar'];
+
+if(!empty($_FILES['gambar']['name'])){
+
+    $namaFile = time() . '_' . $_FILES['gambar']['name'];
+
+    move_uploaded_file(
+        $_FILES['gambar']['tmp_name'],
+        "../uploads/" . $namaFile
+    );
+
+    $gambar = $namaFile;
 }
 
-$stmt = $conn->prepare("
-    UPDATE items 
-    SET nama_barang=?, deskripsi=?, harga=? 
-    WHERE id=?
+$update = $conn->prepare("
+    UPDATE items
+    SET nama_barang = ?, deskripsi = ?, harga = ?, gambar = ?
+    WHERE id = ?
 ");
-$stmt->execute([$nama, $deskripsi, $harga, $id]);
 
-header("Location: ../index.php?page=detail&id=".$id);
+$update->execute([
+    $nama,
+    $deskripsi,
+    $harga,
+    $gambar,
+    $id
+]);
+
+header("Location: ../index.php?page=detail&id=$id");

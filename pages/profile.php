@@ -1,129 +1,77 @@
 <?php
-session_start();
-require '../config/db.php';
-
-if(!isset($_SESSION['user'])){
-    header("Location: ../index.php?page=login");
+if (!isset($_SESSION['user'])) {
+    echo "Harus login!";
     exit;
 }
 
-$id = $_SESSION['user']['id'];
+$user_id = $_SESSION['user']['id'];
 
 $stmt = $conn->prepare("
-SELECT * FROM users
-WHERE id = ?
+    SELECT * FROM items
+    WHERE user_id = ?
+    ORDER BY id DESC
 ");
 
-$stmt->execute([$id]);
+$stmt->execute([$user_id]);
 
-$user = $stmt->fetch();
+$items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Profile</title>
-</head>
-<body>
+<h2 class="fw-bold mb-4">Profil Saya</h2>
 
-<h1>Profile User</h1>
+<div class="row g-4">
 
-<form action="actions/update_profile.php"
-method="POST"
-enctype="multipart/form-data">
+<?php foreach($items as $item): ?>
 
-    <input
-    type="hidden"
-    name="id"
-    value="<?= $user['id']; ?>">
+<?php
+$gambar = "uploads/" . $item['gambar'];
 
-    Username:
-    <br>
+if(empty($item['gambar']) || !file_exists($gambar)){
+    $gambar = "https://via.placeholder.com/400x300?text=No+Image";
+}
+?>
 
-    <input
-    type="text"
-    name="username"
-    value="<?= $user['username']; ?>">
+<div class="col-md-4">
 
-    <br><br>
+    <div class="card shadow-sm border-0 h-100">
 
-    Email:
-    <br>
+        <img
+            src="<?= $gambar ?>"
+            class="card-img-top"
+            style="height:220px; object-fit:cover;"
+        >
 
-    <input
-    type="email"
-    name="email"
-    value="<?= $user['email']; ?>">
+        <div class="card-body d-flex flex-column">
 
-    <br><br>
+            <h5 class="fw-bold">
+                <?= htmlspecialchars($item['nama_barang']) ?>
+            </h5>
 
-    Nomor WA:
-    <br>
+            <p class="text-muted">
+                <?= htmlspecialchars(substr($item['deskripsi'],0,80)) ?>...
+            </p>
 
-    <input
-    type="text"
-    name="nomor_wa"
-    value="<?= $user['nomor_wa']; ?>">
+            <div class="mt-auto">
 
-    <br><br>
+                <h5 class="text-primary fw-bold">
+                    Rp <?= number_format($item['harga']) ?>
+                </h5>
 
-    Alamat:
-    <br>
+                <a
+                    href="?page=edit_barang&id=<?= $item['id'] ?>"
+                    class="btn btn-warning w-100 mt-3"
+                >
+                    Edit Barang
+                </a>
 
-    <textarea
-    name="alamat"><?= $user['alamat']; ?></textarea>
+            </div>
 
-    <br><br>
+        </div>
 
-    Password Baru:
-    <br>
+    </div>
 
-    <input
-    type="password"
-    name="password">
+</div>
 
-    <br><br>
+<?php endforeach; ?>
 
-    <?php if($user['role'] == 'user'){ ?>
-
-        Upload KTP:
-        <br>
-
-        <input type="file" name="ktp">
-
-        <br><br>
-
-        Upload KTM:
-        <br>
-
-        <input type="file" name="ktm">
-
-    <?php } ?>
-
-    <?php if($user['role'] == 'vendor'){ ?>
-
-        Upload KTP Vendor:
-        <br>
-
-        <input type="file" name="ktp">
-
-        <br><br>
-
-        Deskripsi Vendor:
-        <br>
-
-        <textarea
-        name="deskripsi_vendor"><?= $user['deskripsi_vendor']; ?></textarea>
-
-    <?php } ?>
-
-    <br><br>
-
-    <button type="submit">
-        Update Profile
-    </button>
-
-</form>
-
-</body>
-</html>
+</div>
