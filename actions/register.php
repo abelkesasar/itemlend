@@ -2,16 +2,18 @@
 require '../config/db.php';
 
 $username = $_POST['username'];
+$email = $_POST['email'];
 $password = md5($_POST['password']);
 $alamat = $_POST['alamat'];
 $role = $_POST['role'];
-$email = $_POST['email'];
 $nomor_wa = $_POST['nomor_wa'];
+
 $status = 'pending';
 
 $ktp = null;
 $ktm = null;
 $deskripsi_vendor = null;
+$foto_profil = 'default.png';
 
 /*
 |--------------------------------------------------------------------------
@@ -62,39 +64,46 @@ else if($role == 'vendor'){
 | INSERT DATABASE
 |--------------------------------------------------------------------------
 */
+
 $stmt = $conn->prepare("
 INSERT INTO users
 (
     username,
+    email,
     password,
     alamat,
+    nomor_wa,
     role,
+    status,
+    foto_profil,
     ktp,
     ktm,
-    deskripsi_vendor,
-    status
+    deskripsi_vendor
 )
 
 VALUES
 (
-    ?,?,?,?,?,?,?,?
+    ?,?,?,?,?,?,?,?,?,?,?
 )
 ");
 
 $stmt->execute([
     $username,
+    $email,
     $password,
     $alamat,
+    $nomor_wa,
     $role,
+    $status,
+    $foto_profil,
     $ktp,
     $ktm,
-    $deskripsi_vendor,
-    $status
+    $deskripsi_vendor
 ]);
 
 echo "
 <script>
-alert('Register berhasil, tunggu approval admin!');
+alert('Register berhasil!');
 window.location='../index.php?page=login';
 </script>
 ";

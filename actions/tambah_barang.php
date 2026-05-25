@@ -5,7 +5,8 @@ require '../config/db.php';
 $nama = $_POST['nama_barang'];
 $deskripsi = $_POST['deskripsi'];
 $harga = $_POST['harga'];
-$user_id = $_SESSION['user']['id'];
+
+$user_id = $_SESSION['user']; // FIX DI SINI
 
 $gambar = $_FILES['gambar']['name'];
 $tmp = $_FILES['gambar']['tmp_name'];

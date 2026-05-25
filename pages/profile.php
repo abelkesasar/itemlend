@@ -4,7 +4,7 @@ if (!isset($_SESSION['user'])) {
     exit;
 }
 
-$user_id = $_SESSION['user']['id'];
+$user_id = $_SESSION['user'];
 
 $stmt = $conn->prepare("
     SELECT * FROM items

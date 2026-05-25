@@ -1,39 +1,66 @@
 <?php
 session_start();
+
 require '../config/db.php';
 
 $username = $_POST['username'];
 $password = md5($_POST['password']);
 
-echo $username;
-echo "<br>";
-echo $password;
-echo "<br>";
+$stmt = $conn->prepare("
+SELECT * FROM users
+WHERE username = ?
+");
 
-$stmt = $conn->prepare("SELECT * FROM users WHERE username=? AND password=?");
-$stmt->execute([$username, $password]);
+$stmt->execute([$username]);
 
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
+$user = $stmt->fetch();
 
-var_dump($user);
+if(!$user){
 
-if ($user) {
+    echo "
+    <script>
+    alert('Email tidak ditemukan!');
+    window.location='../index.php?page=login';
+    </script>
+    ";
+    exit;
+}
 
-    if ($user['status'] != 'approved') {
-        echo "Akun belum di approve admin";
-        exit;
-    }
+if($user['password'] != $password){
 
-    $_SESSION['user'] = $user;
-    $_SESSION['role'] = $user['role'];
+    echo "
+    <script>
+    alert('Password salah!');
+    window.location='../index.php?page=login';
+    </script>
+    ";
+    exit;
+}
 
-    if ($user['role'] == 'admin') {
-        header("Location: ../admin/dashboard.php");
-    } else {
-        header("Location: ../index.php");
-    }
+/*
+|--------------------------------------------------------------------------
+| SESSION
+|--------------------------------------------------------------------------
+*/
 
-} else {
-    echo "Login gagal";
+$_SESSION['user'] = $user['id'];
+$_SESSION['username'] = $user['username'];
+$_SESSION['role'] = $user['role'];
+
+/*
+|--------------------------------------------------------------------------
+| REDIRECT
+|--------------------------------------------------------------------------
+*/
+
+if($user['role'] == 'admin'){
+
+    header("Location: ../admin/users.php");
+    exit;
+
+}else{
+
+    header("Location: ../index.php?page=home");
+    exit;
 }
 ?>

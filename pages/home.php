@@ -1,5 +1,5 @@
 <?php
-require 'config/db.php';
+require('../config/db.php');
 
 $stmt = $conn->query("
     SELECT items.*, users.username

@@ -2,7 +2,8 @@
 session_start();
 require '../config/db.php';
 
-$id = $_POST['id'];
+$id = $_SESSION['user'];
+
 $username = $_POST['username'];
 $email = $_POST['email'];
 $nomor_wa = $_POST['nomor_wa'];
@@ -15,78 +16,48 @@ WHERE id = ?
 
 $stmtUser->execute([$id]);
 
-$user = $stmtUser->fetch();
+$user = $stmtUser->fetch(PDO::FETCH_ASSOC);
 
-$password = $user['password'];
+$foto_profil = $user['foto_profil'] ?? '';
 
-if(!empty($_POST['password'])){
-    $password = md5($_POST['password']);
-}
+if(isset($_FILES['foto_profil']) &&
+$_FILES['foto_profil']['name'] != ''){
 
-$ktp = $user['ktp'];
-$ktm = $user['ktm'];
-
-if(isset($_FILES['ktp']) &&
-$_FILES['ktp']['name'] != ''){
-
-    $ktp = $_FILES['ktp']['name'];
+    $namaFile = time() . '_' . $_FILES['foto_profil']['name'];
 
     move_uploaded_file(
-        $_FILES['ktp']['tmp_name'],
-        "../uploads/" . $ktp
+        $_FILES['foto_profil']['tmp_name'],
+        "../uploads/" . $namaFile
     );
-}
 
-if(isset($_FILES['ktm']) &&
-$_FILES['ktm']['name'] != ''){
-
-    $ktm = $_FILES['ktm']['name'];
-
-    move_uploaded_file(
-        $_FILES['ktm']['tmp_name'],
-        "../uploads/" . $ktm
-    );
-}
-
-$deskripsi_vendor = $user['deskripsi_vendor'];
-
-if(isset($_POST['deskripsi_vendor'])){
-    $deskripsi_vendor =
-    $_POST['deskripsi_vendor'];
+    $foto_profil = $namaFile;
 }
 
 $stmt = $conn->prepare("
 UPDATE users
 SET
 username = ?,
-password = ?,
 email = ?,
 nomor_wa = ?,
 alamat = ?,
-ktp = ?,
-ktm = ?,
-deskripsi_vendor = ?
+foto_profil = ?
 WHERE id = ?
 ");
 
 $stmt->execute([
     $username,
-    $password,
     $email,
     $nomor_wa,
     $alamat,
-    $ktp,
-    $ktm,
-    $deskripsi_vendor,
+    $foto_profil,
     $id
 ]);
 
-$_SESSION['user']['username'] =
-$username;
+$_SESSION['username'] = $username;
 
 echo "
 <script>
-alert('Profile berhasil di update!');
+alert('Profil berhasil diupdate!');
 window.location='../index.php?page=profile';
 </script>
 ";
