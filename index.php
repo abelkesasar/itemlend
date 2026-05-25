@@ -282,35 +282,8 @@ $page = $_GET['page'] ?? 'home';
 </head>
 <body>
 
-<!-- NAVBAR -->
-<nav class="navbar">
-    <div class="navbar-inner">
-        <a href="index.php" class="navbar-brand">
-            <i class="ti ti-briefcase"></i> ItemLend
-        </a>
+<?php require 'navbar.php'; ?>
 
-        <!-- Search di navbar (desktop) -->
-        <form method="GET" action="index.php" class="navbar-search">
-            <i class="ti ti-search"></i>
-            <input type="hidden" name="page" value="home">
-            <input
-                type="text" name="q"
-                placeholder="Cari barang..."
-                value="<?= htmlspecialchars($_GET['q'] ?? '') ?>">
-        </form>
-
-        <div class="navbar-right">
-            <?php if (isset($_SESSION['role'])): ?>
-                <span class="nav-greeting">Halo, <strong><?= htmlspecialchars($_SESSION['username'] ?? 'User') ?></strong></span>
-                <a href="?page=profile" class="btn btn-outline"><i class="ti ti-user"></i> Profil</a>
-                <a href="actions/logout.php" class="btn btn-danger-outline"><i class="ti ti-logout"></i> Logout</a>
-            <?php else: ?>
-                <a href="?page=login"    class="btn btn-outline">Login</a>
-                <a href="?page=register" class="btn btn-primary">Register</a>
-            <?php endif; ?>
-        </div>
-    </div>
-</nav>
 
 <?php
 switch ($page) {
@@ -342,6 +315,7 @@ switch ($page) {
         require 'pages/sewa.php';
         echo '</div>';
         break;
+        
 
     case 'edit_barang':
         echo '<div class="main-wrap">';
@@ -358,6 +332,12 @@ switch ($page) {
     case 'profile':
         echo '<div class="main-wrap">';
         require 'pages/profile.php';
+        echo '</div>';
+        break;
+
+    case 'barangsaya':
+        echo '<div class="main-wrap">';
+        require 'pages/barangsaya.php';
         echo '</div>';
         break;
 
@@ -556,9 +536,29 @@ switch ($page) {
             </div>
         <?php else: ?>
             <?php foreach ($items as $item):
-                $gambar = (!empty($item['gambar']) && file_exists("uploads/" . $item['gambar']))
-                    ? "uploads/" . $item['gambar']
-                    : null;
+                $gambar = null;
+
+if (!empty($item['gambar'])) {
+
+    $gambar_list = json_decode($item['gambar'], true);
+
+    // Jika format baru (JSON multiple image)
+    if (is_array($gambar_list) && !empty($gambar_list[0])) {
+
+        $first_image = $gambar_list[0];
+
+        if (file_exists("uploads/" . $first_image)) {
+            $gambar = "uploads/" . $first_image;
+        }
+
+    } else {
+
+        // Support format lama (single image)
+        if (file_exists("uploads/" . $item['gambar'])) {
+            $gambar = "uploads/" . $item['gambar'];
+        }
+    }
+}
                 $harga  = 'Rp ' . number_format($item['harga'], 0, ',', '.');
                 $c      = $av_colors[abs(crc32($item['username'] ?? '')) % 5];
                 $init   = strtoupper(substr($item['username'] ?? '?', 0, 2));

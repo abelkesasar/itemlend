@@ -2,30 +2,80 @@
 session_start();
 require '../config/db.php';
 
-$nama = $_POST['nama_barang'];
-$deskripsi = $_POST['deskripsi'];
-$harga = $_POST['harga'];
+if (!isset($_SESSION['user'])) {
+    header("Location: ../index.php?page=login");
+    exit;
+}
 
-$user_id = $_SESSION['user']; // FIX DI SINI
+$user_id     = (int) $_SESSION['user'];
+$nama_barang = trim($_POST['nama_barang'] ?? '');
+$deskripsi   = trim($_POST['deskripsi']   ?? '');
+$harga       = (int) ($_POST['harga']     ?? 0);
+$stok        = (int) ($_POST['stok']      ?? 1);
+$kategori    = trim($_POST['kategori']    ?? '');
+$lokasi      = trim($_POST['lokasi']      ?? '');
 
-$gambar = $_FILES['gambar']['name'];
-$tmp = $_FILES['gambar']['tmp_name'];
+// Validasi dasar
+if (!$nama_barang || !$harga) {
+    echo "<script>alert('Nama barang dan harga wajib diisi!'); history.back();</script>";
+    exit;
+}
 
-move_uploaded_file($tmp, "../uploads/" . $gambar);
+// Handle upload gambar
+$gambar_list = [];
 
+if (!empty($_FILES['gambar']['name'][0])) {
+
+    $allowed = ['jpg', 'jpeg', 'png', 'webp'];
+
+    foreach ($_FILES['gambar']['name'] as $key => $name) {
+
+        $tmp_name = $_FILES['gambar']['tmp_name'][$key];
+        $size     = $_FILES['gambar']['size'][$key];
+
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+
+        if (!in_array($ext, $allowed)) {
+            continue;
+        }
+
+        if ($size > 5 * 1024 * 1024) {
+            continue;
+        }
+
+        $new_name = 'item_' . $user_id . '_' . time() . '_' . $key . '.' . $ext;
+
+        move_uploaded_file($tmp_name, "../uploads/" . $new_name);
+
+        $gambar_list[] = $new_name;
+    }
+}
+
+$gambar = json_encode($gambar_list);
+
+// Insert ke DB
 $stmt = $conn->prepare("
-INSERT INTO items
-(nama_barang, deskripsi, harga, gambar, user_id)
-VALUES (?, ?, ?, ?, ?)
+    INSERT INTO items
+        (user_id, nama_barang, kategori, deskripsi, harga, stok, lokasi, gambar, status)
+    VALUES
+        (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
 ");
 
 $stmt->execute([
-    $nama,
+    $user_id,
+    $nama_barang,
+    $kategori,
     $deskripsi,
     $harga,
+    $stok,
+    $lokasi,
     $gambar,
-    $user_id
 ]);
 
-header("Location: ../index.php");
-exit;
+echo "
+<script>
+    alert('Barang berhasil didaftarkan! Menunggu approval admin.');
+    window.location='../index.php?page=barangsaya';
+</script>
+";
+?>
