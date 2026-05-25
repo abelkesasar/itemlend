@@ -489,7 +489,7 @@ switch ($page) {
         <div class="own-notice">
             <i class="ti ti-info-circle" style="font-size:16px;flex-shrink:0;"></i>
             <?= $own_count ?> barang milikmu tidak ditampilkan di sini.
-            <a href="?page=profile" style="margin-left:auto;color:#cc7a00;font-weight:600;font-size:12px;">Lihat barangku →</a>
+            <a href="?page=barangsaya" style="margin-left:auto;color:#cc7a00;font-weight:600;font-size:12px;">Lihat barangku →</a>
         </div>
     <?php endif; ?>
 

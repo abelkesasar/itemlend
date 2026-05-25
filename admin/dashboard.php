@@ -4,7 +4,7 @@ require '../config/db.php';
 
 if (
     !isset($_SESSION['user']) ||
-    $_SESSION['user']['role'] != 'admin'
+    ($_SESSION['role'] ?? '') != 'admin'
 ) {
     header("Location: ../index.php?page=login");
     exit;
