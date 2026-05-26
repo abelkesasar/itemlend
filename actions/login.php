@@ -55,7 +55,7 @@ $_SESSION['role'] = $user['role'];
 
 if($user['role'] == 'admin'){
 
-    header("Location: ../admin/users.php");
+    header("Location: ../admin/dashboard.php");
     exit;
 
 }else{
