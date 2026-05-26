@@ -347,6 +347,18 @@ switch ($page) {
         echo '</div>';
         break;
 
+    case 'pembayaran':
+        echo '<div class="main-wrap">';
+        require 'pages/pembayaran.php';
+        echo '</div>';
+        break;
+
+    case 'pesanansaya':
+        echo '<div class="main-wrap">';
+        require 'pages/pesanansaya.php';
+        echo '</div>';
+        break;
+
     default: // HOME
 
         // ── Parameter search & filter
