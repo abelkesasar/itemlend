@@ -265,9 +265,41 @@ $latest_items = $conn->query("SELECT * FROM items ORDER BY created_at DESC LIMIT
                     <?php if (empty($latest_items)): ?>
                         <div class="empty-state">Belum ada item</div>
                     <?php else: ?>
-                        <?php foreach ($latest_items as $item): ?>
-                        <div class="item-row">
-                            <div class="item-img"><i class="ti ti-box-seam"></i></div>
+                        <?php foreach ($latest_items as $item):
+
+    $gambar = null;
+
+    if (!empty($item['gambar'])) {
+
+        $gambar_list = json_decode($item['gambar'], true);
+
+        if (is_array($gambar_list) && !empty($gambar_list[0])) {
+
+            $first_image = $gambar_list[0];
+
+            if (file_exists("../uploads/" . $first_image)) {
+                $gambar = "../uploads/" . $first_image;
+            }
+
+        } else {
+
+            // support gambar lama
+            if (file_exists("../uploads/" . $item['gambar'])) {
+                $gambar = "../uploads/" . $item['gambar'];
+            }
+        }
+    }
+
+?>
+<div class="item-row">
+                            <div class="item-img">
+    <?php if ($gambar): ?>
+        <img src="<?= htmlspecialchars($gambar) ?>" alt=""
+             style="width:100%;height:100%;object-fit:cover;">
+    <?php else: ?>
+        <i class="ti ti-box-seam"></i>
+    <?php endif; ?>
+</div>
                             <div class="item-info">
                                 <div class="item-name"><?= htmlspecialchars($item['nama_barang'] ?? '-') ?></div>
                                 <div class="item-loc"><?= htmlspecialchars(substr($item['deskripsi'] ?? '-', 0, 30)) ?>...</div>
