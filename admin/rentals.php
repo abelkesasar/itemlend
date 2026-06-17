@@ -263,6 +263,46 @@ $av_colors = [
             .rc-body { grid-template-columns: 1fr; }
             .rc-cell { border-right: none; border-bottom: 1px solid #f0f1f3; }
         }
+        <style id="export-style-snippet">
+    .export-bar {
+        display: flex; align-items: center; gap: 10px;
+        background: #fff; border: 1px solid #e5e7eb;
+        border-radius: 12px; padding: 14px 18px;
+        margin-bottom: 18px; flex-wrap: wrap;
+    }
+    .export-bar-label {
+        display: flex; align-items: center; gap: 7px;
+        font-size: 13px; font-weight: 700; color: #1a1d2e;
+        white-space: nowrap;
+    }
+    .export-bar-label i { font-size: 18px; color: #3d4bff; }
+    .export-input {
+        height: 38px; border: 1.5px solid #e5e7eb; border-radius: 9px;
+        padding: 0 12px; background: #fff; font-family: inherit;
+        font-size: 13px; color: #1a1d2e; outline: none;
+        transition: border-color 0.15s;
+    }
+    .export-input:focus { border-color: #3d4bff; }
+    .export-input-wrap {
+        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .export-input-group {
+        display: flex; align-items: center; gap: 6px;
+    }
+    .export-input-group label {
+        font-size: 12px; font-weight: 600; color: #6b7280; white-space: nowrap;
+    }
+    .btn-export {
+        display: inline-flex; align-items: center; gap: 7px;
+        padding: 9px 18px; background: #16a34a; color: #fff;
+        border: none; border-radius: 9px; font-family: inherit;
+        font-size: 13px; font-weight: 700; cursor: pointer;
+        transition: background 0.15s; white-space: nowrap; margin-left: auto;
+    }
+    .btn-export:hover { background: #15803d; }
+    .btn-export i { font-size: 17px; }
+    .export-sep { width: 1px; height: 24px; background: #e5e7eb; }
+</style>
     </style>
 </head>
 <body>
@@ -322,7 +362,42 @@ $av_colors = [
                     <span class="result-count"><?= count($rentals) ?> transaksi</span>
                 </div>
             </form>
-
+<div class="export-bar">
+    <div class="export-bar-label">
+        <i class="ti ti-file-spreadsheet"></i> Export Laporan
+    </div>
+    <div class="export-sep"></div>
+    <form method="GET" action="export_laporan.php" target="_blank"
+          style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;">
+        <div class="export-input-wrap">
+            <div class="export-input-group">
+                <label>Dari</label>
+                <input type="date" name="dari" class="export-input"
+                       value="<?= date('Y-m-01') ?>"
+                       max="<?= date('Y-m-d') ?>">
+            </div>
+            <div class="export-input-group">
+                <label>Sampai</label>
+                <input type="date" name="sampai" class="export-input"
+                       value="<?= date('Y-m-d') ?>"
+                       max="<?= date('Y-m-d') ?>">
+            </div>
+            <div class="export-input-group">
+                <label>Status</label>
+                <select name="status" class="export-input" style="min-width:140px;">
+                    <option value="semua">Semua Status</option>
+                    <option value="lunas">Lunas</option>
+                    <option value="menunggu_konfirmasi">Menunggu Konfirmasi</option>
+                    <option value="pending">Belum Bayar</option>
+                    <option value="ditolak">Ditolak</option>
+                </select>
+            </div>
+        </div>
+        <button type="submit" class="btn-export">
+            <i class="ti ti-download"></i> Download Excel
+        </button>
+    </form>
+</div>
             <!-- Tabs -->
             <div class="tab-bar">
                 <?php
