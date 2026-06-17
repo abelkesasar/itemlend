@@ -39,6 +39,8 @@ $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $total_items   = $conn->query("SELECT COUNT(*) FROM items")->fetchColumn();
 $pending_users = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
+$pending_users = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
+$pending_items = $conn->query("SELECT COUNT(*) FROM items WHERE status='pending'")->fetchColumn(); // ← tambah sini
 
 // Icon map berdasarkan kata kunci nama barang
 function getItemIcon(string $name): string {
@@ -285,6 +287,30 @@ $avatar_colors = [
                     </select>
                     <button type="submit" style="display:none"></button>
                     <span class="count-pill"><?= count($items) ?> barang</span>
+                    <a href="barangapproval.php" style="
+    display:inline-flex; align-items:center; gap:7px;
+    height:40px; padding:0 16px;
+    background:#fff7e6; color:#cc7a00;
+    border:1px solid #fed7aa;
+    border-radius:10px;
+    font-size:13px; font-weight:600;
+    text-decoration:none;
+    white-space:nowrap;
+    transition:background 0.15s;
+" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff7e6'">
+    <i class="ti ti-clock" style="font-size:16px"></i>
+    Approval Barang
+    <?php if ($pending_items > 0): ?>
+        <span style="
+            background:#cc7a00; color:#fff;
+            font-size:11px; font-weight:700;
+            padding:2px 7px; border-radius:20px;
+            line-height:1.4;
+        "><?= $pending_items ?></span>
+    <?php endif; ?>
+</a>
+
+
                 </div>
             </form>
 

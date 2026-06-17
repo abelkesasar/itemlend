@@ -503,7 +503,9 @@ function userInitial($name) {
                                         <div class="user-cell">
                                             <div class="user-av"><?= userInitial($u['username']) ?></div>
                                             <div>
-                                                <div class="user-name"><?= htmlspecialchars($u['username']) ?></div>
+                                                <a href="user_detail.php?id=<?= $u['id'] ?>" style="text-decoration:none;">
+    <div class="user-name" style="color:#3d4bff;"><?= htmlspecialchars($u['username']) ?></div>
+</a>
                                                 <div class="user-id">ID: <?= $u['id'] ?></div>
                                             </div>
                                         </div>

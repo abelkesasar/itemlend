@@ -89,7 +89,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
     </a>
 
     <a href="users.php" class="nav-item <?= $current_page === 'users.php' ? 'active' : '' ?>">
-        <i class="ti ti-users"></i> User Approval
+        <i class="ti ti-users"></i> User 
         <?php if ($pending_users > 0): ?>
             <span class="nav-badge"><?= $pending_users ?></span>
         <?php endif; ?>
