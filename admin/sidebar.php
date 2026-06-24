@@ -8,6 +8,15 @@ if (!isset($pending_users)) {
     $pending_users = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
 }
 
+// Hitung total notifikasi untuk badge
+if (!isset($total_notifikasi)) {
+    $c_u = (int)$conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
+    $c_i = (int)$conn->query("SELECT COUNT(*) FROM items WHERE status='pending'")->fetchColumn();
+    $c_p = (int)$conn->query("SELECT COUNT(*) FROM rentals WHERE status_pembayaran='menunggu_konfirmasi' AND bukti_pembayaran IS NOT NULL")->fetchColumn();
+    $c_r = (int)$conn->query("SELECT COUNT(*) FROM reports WHERE status='pending'")->fetchColumn();
+    $total_notifikasi = $c_u + $c_i + $c_p + $c_r;
+}
+
 // Tentukan halaman aktif otomatis berdasarkan nama file
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
@@ -88,8 +97,15 @@ $current_page = basename($_SERVER['PHP_SELF']);
         <i class="ti ti-layout-dashboard"></i> Dashboard
     </a>
 
+    <a href="notifikasi.php" class="nav-item <?= $current_page === 'notifikasi.php' ? 'active' : '' ?>">
+        <i class="ti ti-bell"></i> Notifikasi
+        <?php if ($total_notifikasi > 0): ?>
+            <span class="nav-badge"><?= $total_notifikasi ?></span>
+        <?php endif; ?>
+    </a>
+
     <a href="users.php" class="nav-item <?= $current_page === 'users.php' ? 'active' : '' ?>">
-        <i class="ti ti-users"></i> User 
+        <i class="ti ti-users"></i> User
         <?php if ($pending_users > 0): ?>
             <span class="nav-badge"><?= $pending_users ?></span>
         <?php endif; ?>
