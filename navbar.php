@@ -290,13 +290,7 @@
                             <a href="index.php?page=pesanansaya" class="dd-item">
                                 <i class="ti ti-clipboard-list"></i> Pesanan Saya
                             </a>
-                            <a href="index.php?page=peminjaman_saya" class="dd-item">
-                                <i class="ti ti-shopping-bag"></i> Peminjaman Saya
-                                <?php if ($pending_saya > 0): ?>
-                                    <span class="dd-badge"><?= $pending_saya ?></span>
-                                <?php endif; ?>
-                            </a>
-
+                    
                             <?php if ($role === 'admin'): ?>
                                 <div class="dd-divider"></div>
                                 <a href="admin/dashboard.php" class="dd-item">
@@ -343,7 +337,7 @@
             <div class="dd-divider" style="margin:4px 0;"></div>
             <a href="index.php?page=barangsaya"      class="nav-link"><i class="ti ti-store"></i> Toko Saya</a>
             <a href="index.php?page=pesanansaya"     class="nav-link"><i class="ti ti-clipboard-list"></i> Pesanan Saya</a>
-            <a href="index.php?page=peminjaman_saya" class="nav-link"><i class="ti ti-shopping-bag"></i> Peminjaman Saya</a>
+            
             <div class="dd-divider" style="margin:4px 0;"></div>
             <a href="index.php?page=profile"         class="nav-link"><i class="ti ti-user"></i> Profil</a>
             <div class="dd-divider" style="margin:4px 0;"></div>
