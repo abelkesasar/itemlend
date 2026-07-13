@@ -245,6 +245,19 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         }
         .btn-edit:hover { background: var(--brand-soft); }
 
+        /* Tombol Laporkan */
+        .btn-report {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; padding: 11px;
+            background: transparent; color: #dc2626;
+            border: 1.5px solid #fecaca; border-radius: 12px;
+            font-family: inherit;
+            font-size: 13.5px; font-weight: 600; margin-top: 10px;
+            cursor: pointer; transition: background 0.15s;
+        }
+        .btn-report:hover { background: #fff5f5; }
+        .btn-report i { font-size: 16px; }
+
         .safe-note {
             display: flex; align-items: center; gap: 8px; justify-content: center;
             margin-top: 14px; font-size: 12px; color: var(--muted);
@@ -296,6 +309,61 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         .other-body { padding: 10px 12px; }
         .other-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .other-price { font-size: 12px; color: var(--brand); font-weight: 700; margin-top: 3px; }
+
+        /* ── REPORT MODAL ── */
+        .report-modal-overlay {
+            display: none;
+            position: fixed; inset: 0;
+            background: rgba(26,29,46,0.55);
+            z-index: 200;
+            align-items: center; justify-content: center;
+            padding: 20px;
+        }
+        .report-modal-overlay.active { display: flex; }
+        .report-modal {
+            background: #fff; border-radius: 18px;
+            width: 100%; max-width: 440px;
+            padding: 24px;
+            max-height: 90vh; overflow-y: auto;
+        }
+        .report-modal-header {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 18px;
+        }
+        .report-modal-header h3 {
+            font-size: 17px; font-weight: 800; color: #dc2626;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .report-close {
+            background: var(--bg); border: none; cursor: pointer;
+            width: 30px; height: 30px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--muted); font-size: 15px;
+        }
+        .report-close:hover { background: #e5e7eb; }
+        .report-field { margin-bottom: 14px; }
+        .report-field label {
+            display: block; font-size: 12.5px; font-weight: 700;
+            color: var(--text); margin-bottom: 6px;
+        }
+        .report-field select, .report-field textarea {
+            width: 100%; padding: 10px 12px;
+            border: 1.5px solid var(--border); border-radius: 10px;
+            font-family: inherit; font-size: 13.5px; color: var(--text);
+            resize: vertical;
+        }
+        .report-field select:focus, .report-field textarea:focus {
+            outline: none; border-color: #dc2626;
+        }
+        .btn-submit-report {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; padding: 13px;
+            background: #dc2626; color: #fff;
+            border: none; border-radius: 12px;
+            font-family: inherit; font-size: 14px; font-weight: 700;
+            cursor: pointer; transition: background 0.15s;
+        }
+        .btn-submit-report:hover { background: #b91c1c; }
 
         /* ── RESPONSIVE ── */
         @media (max-width: 860px) {
@@ -466,6 +534,13 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
                     </a>
                 <?php endif; ?>
 
+                <!-- Tombol Laporkan (hanya untuk user login yang bukan pemilik) -->
+                <?php if ($user_login && $item['user_id'] != $user_login): ?>
+                    <button type="button" class="btn-report" onclick="openReportModal()">
+                        <i class="ti ti-flag"></i> Laporkan Barang Ini
+                    </button>
+                <?php endif; ?>
+
                 <div class="safe-note">
                     <i class="ti ti-shield"></i>
                     Transaksi aman & terlindungi ItemLend
@@ -475,6 +550,55 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         </div>
 
     </div>
+
+    <!-- REPORT MODAL -->
+    <?php if ($user_login && $item['user_id'] != $user_login): ?>
+    <div id="reportModal" class="report-modal-overlay">
+        <div class="report-modal">
+            <div class="report-modal-header">
+                <h3><i class="ti ti-flag"></i> Laporkan Barang</h3>
+                <button type="button" class="report-close" onclick="closeReportModal()"><i class="ti ti-x"></i></button>
+            </div>
+            <form action="actions/report.php" method="POST">
+                <input type="hidden" name="type" value="barang">
+                <input type="hidden" name="target_id" value="<?= $item['id'] ?>">
+
+                <div class="report-field">
+                    <label>Alasan Laporan</label>
+                    <select name="reason" required>
+                        <option value="">-- Pilih alasan --</option>
+                        <option value="Barang tidak sesuai deskripsi">Barang tidak sesuai deskripsi</option>
+                        <option value="Barang rusak/cacat">Barang rusak/cacat</option>
+                        <option value="Pemilik tidak merespon">Pemilik tidak merespon</option>
+                        <option value="Dugaan penipuan">Dugaan penipuan</option>
+                        <option value="Lainnya">Lainnya</option>
+                    </select>
+                </div>
+
+                <div class="report-field">
+                    <label>Detail Tambahan (opsional)</label>
+                    <textarea name="detail" rows="4" placeholder="Jelaskan lebih lanjut masalah yang kamu alami..."></textarea>
+                </div>
+
+                <button type="submit" class="btn-submit-report">
+                    <i class="ti ti-send"></i> Kirim Laporan
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openReportModal() {
+            document.getElementById('reportModal').classList.add('active');
+        }
+        function closeReportModal() {
+            document.getElementById('reportModal').classList.remove('active');
+        }
+        document.getElementById('reportModal').addEventListener('click', function(e) {
+            if (e.target === this) closeReportModal();
+        });
+    </script>
+    <?php endif; ?>
 
 </body>
 </html>

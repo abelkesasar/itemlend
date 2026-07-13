@@ -71,6 +71,13 @@ function getStatusBadge(array $r): string {
         return '<span class="sbadge s-konfirmasi"><i class="ti ti-hourglass"></i> Menunggu Konfirmasi</span>';
     return '<span class="sbadge s-pending"><i class="ti ti-clock"></i> Belum Bayar</span>';
 }
+
+// Apakah pesanan ini sudah bisa dilaporkan? (baru relevan setelah pembayaran lunas)
+function canBeReported(array $r): bool {
+    $sp  = $r['status_pembayaran'] ?? 'pending';
+    $spj = $r['status_pinjam']     ?? 'belum_mulai';
+    return $sp === 'lunas' || $spj === 'sedang_dipinjam' || $spj === 'selesai';
+}
 ?>
 
 <style>
@@ -173,7 +180,7 @@ function getStatusBadge(array $r): string {
     .order-dates i { font-size: 14px; }
     .order-dates strong { color: #374151; }
 
-    .order-actions { display: flex; gap: 8px; }
+    .order-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
     .btn-sm {
         display: inline-flex; align-items: center; gap: 5px;
@@ -190,6 +197,8 @@ function getStatusBadge(array $r): string {
     .btn-wa-sm:hover { background: #dcfce7; }
     .btn-ulang-sm  { background: #eef0ff; color: #3d4bff; border: 1px solid #c7d0ff; }
     .btn-ulang-sm:hover { background: #dde0ff; }
+    .btn-report-sm { background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; }
+    .btn-report-sm:hover { background: #fee2e2; }
 
     /* Timeline strip (khusus sedang dipinjam) */
     .timeline-strip {
@@ -219,6 +228,65 @@ function getStatusBadge(array $r): string {
         background: #3d4bff; color: #fff;
         border-radius: 10px; font-size: 13px; font-weight: 600;
     }
+
+    /* ── REPORT MODAL ── */
+    .report-modal-overlay {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(26,29,46,0.55);
+        z-index: 200;
+        align-items: center; justify-content: center;
+        padding: 20px;
+    }
+    .report-modal-overlay.active { display: flex; }
+    .report-modal {
+        background: #fff; border-radius: 18px;
+        width: 100%; max-width: 440px;
+        padding: 24px;
+        max-height: 90vh; overflow-y: auto;
+    }
+    .report-modal-header {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 6px;
+    }
+    .report-modal-header h3 {
+        font-size: 17px; font-weight: 800; color: #dc2626;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .report-close {
+        background: #f4f5f7; border: none; cursor: pointer;
+        width: 30px; height: 30px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        color: #6b7280; font-size: 15px;
+    }
+    .report-close:hover { background: #e5e7eb; }
+    .report-target-name {
+        font-size: 13px; color: #6b7280; margin-bottom: 16px;
+    }
+    .report-target-name strong { color: #1a1d2e; }
+    .report-field { margin-bottom: 14px; }
+    .report-field label {
+        display: block; font-size: 12.5px; font-weight: 700;
+        color: #1a1d2e; margin-bottom: 6px;
+    }
+    .report-field select, .report-field textarea {
+        width: 100%; padding: 10px 12px;
+        border: 1.5px solid #e5e7eb; border-radius: 10px;
+        font-family: inherit; font-size: 13.5px; color: #1a1d2e;
+        resize: vertical;
+    }
+    .report-field select:focus, .report-field textarea:focus {
+        outline: none; border-color: #dc2626;
+    }
+    .btn-submit-report {
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        width: 100%; padding: 13px;
+        background: #dc2626; color: #fff;
+        border: none; border-radius: 12px;
+        font-family: inherit; font-size: 14px; font-weight: 700;
+        cursor: pointer; transition: background 0.15s;
+    }
+    .btn-submit-report:hover { background: #b91c1c; }
 
     @media (max-width: 600px) {
         .order-main { flex-wrap: wrap; }
@@ -382,6 +450,14 @@ function getStatusBadge(array $r): string {
                             <i class="ti ti-repeat"></i> Sewa Lagi
                         </a>
                     <?php endif; ?>
+
+                    <!-- Tombol Laporkan (muncul setelah lunas / sedang dipinjam / selesai) -->
+                    <?php if (canBeReported($r)): ?>
+                        <button type="button" class="btn-sm btn-report-sm"
+                                onclick="openReportModal(<?= (int) $r['id'] ?>, '<?= htmlspecialchars(addslashes($r['nama_barang'])) ?>', '<?= htmlspecialchars(addslashes($r['pemilik'])) ?>')">
+                            <i class="ti ti-flag"></i> Laporkan
+                        </button>
+                    <?php endif; ?>
                 </div>
             </div>
 
@@ -391,3 +467,55 @@ function getStatusBadge(array $r): string {
     <?php endif; ?>
 
 </div>
+
+<!-- REPORT MODAL (shared untuk semua card) -->
+<div id="reportModal" class="report-modal-overlay">
+    <div class="report-modal">
+        <div class="report-modal-header">
+            <h3><i class="ti ti-flag"></i> Laporkan Pesanan</h3>
+            <button type="button" class="report-close" onclick="closeReportModal()"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="report-target-name" id="reportTargetName"></div>
+
+        <form action="actions/report.php" method="POST">
+            <input type="hidden" name="type" value="transaksi">
+            <input type="hidden" name="target_id" id="reportTargetId" value="">
+
+            <div class="report-field">
+                <label>Alasan Laporan</label>
+                <select name="reason" required>
+                    <option value="">-- Pilih alasan --</option>
+                    <option value="Barang tidak sesuai saat diterima">Barang tidak sesuai saat diterima</option>
+                    <option value="Barang rusak/cacat saat diterima">Barang rusak/cacat saat diterima</option>
+                    <option value="Pemilik tidak responsif">Pemilik tidak responsif</option>
+                    <option value="Dugaan penipuan">Dugaan penipuan</option>
+                    <option value="Lainnya">Lainnya</option>
+                </select>
+            </div>
+
+            <div class="report-field">
+                <label>Detail Tambahan (opsional)</label>
+                <textarea name="detail" rows="4" placeholder="Jelaskan lebih lanjut masalah yang kamu alami..."></textarea>
+            </div>
+
+            <button type="submit" class="btn-submit-report">
+                <i class="ti ti-send"></i> Kirim Laporan
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openReportModal(rentalId, namaBarang, namaPemilik) {
+        document.getElementById('reportTargetId').value = rentalId;
+        document.getElementById('reportTargetName').innerHTML =
+            'Melaporkan pesanan <strong>' + namaBarang + '</strong> dari <strong>' + namaPemilik + '</strong>';
+        document.getElementById('reportModal').classList.add('active');
+    }
+    function closeReportModal() {
+        document.getElementById('reportModal').classList.remove('active');
+    }
+    document.getElementById('reportModal').addEventListener('click', function(e) {
+        if (e.target === this) closeReportModal();
+    });
+</script>

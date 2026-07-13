@@ -8,6 +8,11 @@ if (!isset($pending_users)) {
     $pending_users = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
 }
 
+// Hanya query jika $pending_reports belum di-set oleh halaman pemanggil
+if (!isset($pending_reports)) {
+    $pending_reports = (int) $conn->query("SELECT COUNT(*) FROM reports WHERE status='pending'")->fetchColumn();
+}
+
 // Hitung total notifikasi untuk badge
 if (!isset($total_notifikasi)) {
     $c_u = (int)$conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
@@ -117,6 +122,13 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
     <a href="rentals.php" class="nav-item <?= $current_page === 'rentals.php' ? 'active' : '' ?>">
         <i class="ti ti-shopping-cart"></i> Rentals
+    </a>
+
+    <a href="reports.php" class="nav-item <?= $current_page === 'reports.php' ? 'active' : '' ?>">
+        <i class="ti ti-flag"></i> Laporan
+        <?php if ($pending_reports > 0): ?>
+            <span class="nav-badge"><?= $pending_reports ?></span>
+        <?php endif; ?>
     </a>
 
     <div class="sidebar-section">System</div>
