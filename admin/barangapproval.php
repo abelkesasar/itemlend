@@ -314,11 +314,29 @@ $avatar_colors = [
                                 <td>
                                     <div class="item-cell">
                                         <div class="item-thumb">
-                                            <?php if (!empty($item['foto'])): ?>
-                                                <img src="../uploads/<?= htmlspecialchars($item['foto']) ?>" alt="">
-                                            <?php else: ?>
-                                                <i class="ti <?= $icon ?>"></i>
-                                            <?php endif; ?>
+<?php
+$gambar = null;
+
+if (!empty($item['gambar'])) {
+    $gambar_list = json_decode($item['gambar'], true);
+
+    if (is_array($gambar_list) && !empty($gambar_list[0])) {
+        if (file_exists("../uploads/" . $gambar_list[0])) {
+            $gambar = "../uploads/" . $gambar_list[0];
+        }
+    } else {
+        if (file_exists("../uploads/" . $item['gambar'])) {
+            $gambar = "../uploads/" . $item['gambar'];
+        }
+    }
+}
+?>
+
+<?php if ($gambar): ?>
+    <img src="<?= htmlspecialchars($gambar) ?>" alt="">
+<?php else: ?>
+    <i class="ti <?= $icon ?>"></i>
+<?php endif; ?>
                                         </div>
                                         <div>
                                             <div class="item-name"><?= htmlspecialchars($item['nama_barang'] ?? '-') ?></div>
