@@ -5,124 +5,110 @@ class SuccessPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
-
       backgroundColor: Colors.white,
-
-      body: Center(
+      body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
-
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-
             children: [
-
+              // 1. Ikon Sukses
               Container(
-                width: 140,
-                height: 140,
-
+                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: Colors.green.shade100,
+                  color: Colors.green.shade50,
                   shape: BoxShape.circle,
                 ),
-
-                child: Icon(
-                  Icons.check,
-                  size: 80,
-                  color: Colors.green.shade700,
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  color: Colors.green,
+                  size: 100,
                 ),
               ),
-
-              const SizedBox(height: 40),
-
+              const SizedBox(height: 32),
+              
+              // 2. Teks Ucapan Selamat
               const Text(
-                "Payment Successful!",
+                "Pesanan Berhasil Dibuat!",
                 style: TextStyle(
-                  fontSize: 30,
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
+                  color: Color(0xFF2D3142),
                 ),
-              ),
-
-              const SizedBox(height: 15),
-
-              const Text(
-                "Your rental request has been successfully submitted.",
                 textAlign: TextAlign.center,
-
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "Yay! Permintaan sewa kamu sudah diteruskan ke vendor. Silakan pantau status pesananmu secara berkala.",
                 style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.grey,
-                  height: 1.5,
+                  fontSize: 15,
+                  color: Colors.grey.shade600,
+                  height: 1.6,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
+              
+              // 3. Card ID Pesanan
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F9FA),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text("ID Pesanan", style: TextStyle(color: Colors.grey.shade600)),
+                    const Text("ORD-20260720", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2D3142))),
+                  ],
                 ),
               ),
-
-              const SizedBox(height: 50),
-
-SizedBox(
-  width: double.infinity,
-  height: 60,
-  child: ElevatedButton.icon(
-    onPressed: () {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/rental-history',
-        (route) => false,
-      );
-    },
-    icon: const Icon(
-      Icons.receipt_long,
-      color: Colors.white,
-    ),
-    label: const Text(
-      "View Rental History",
-      style: TextStyle(
-        fontSize: 18,
-        color: Colors.white,
-        fontWeight: FontWeight.bold,
-      ),
-    ),
-    style: ElevatedButton.styleFrom(
-      backgroundColor: Colors.blue,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-    ),
-  ),
-),
-
-const SizedBox(height: 14),
-
-SizedBox(
-  width: double.infinity,
-  height: 55,
-  child: OutlinedButton(
-    onPressed: () {
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/home',
-        (route) => false,
-      );
-    },
-    style: OutlinedButton.styleFrom(
-      side: const BorderSide(color: Colors.blue),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-    ),
-    child: const Text(
-      "Back to Home",
-      style: TextStyle(
-        color: Colors.blue,
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-      ),
-    ),
-  ),
-),
             ],
           ),
+        ),
+      ),
+      
+      // 4. Tombol Aksi di Bawah
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min, // Agar tingginya menyesuaikan isi
+          children: [
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton(
+                onPressed: () {
+                  // Arahkan ke halaman riwayat pesanan (rental_history_page.dart)
+                  // Navigator.pushReplacementNamed(context, '/rental-history');
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF3D5AFE), // Biru utama
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
+                ),
+                child: const Text("Lihat Riwayat Pesanan", style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: TextButton(
+                onPressed: () {
+                  // Arahkan kembali ke dashboard/home mahasiswa dan hapus riwayat rute sebelumnya
+                  // Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+                },
+                style: TextButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                child: const Text("Kembali ke Beranda", style: TextStyle(fontSize: 16, color: Color(0xFF3D5AFE), fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
         ),
       ),
     );

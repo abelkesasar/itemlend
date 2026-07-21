@@ -1,210 +1,113 @@
-import 'dart:io';
-import 'package:provider/provider.dart';
-import '../../providers/item_provider.dart';
 import 'package:flutter/material.dart';
-import '../../widgets/vendor_bottom_navbar.dart';
 
 class MyItemsPage extends StatelessWidget {
   const MyItemsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<ItemProvider>(context);
-final items = provider.items;
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-
+      backgroundColor: const Color(0xFFF8F9FA), // Abu-abu sangat terang untuk kesan clean
       appBar: AppBar(
-        title: const Text("My Items"),
+        title: const Text("Barang Saya", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2D3142))),
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
         elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Color(0xFF3D5AFE)),
+        surfaceTintColor: Colors.transparent, // Mencegah warna berubah saat di-scroll
       ),
-
-      body: items.isEmpty
-    ? const Center(
-        child: Text(
-          "No items yet.\nTap + to add your first item.",
-          textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 18),
-        ),
-      )
-      : ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: items.length,
+      body: ListView.builder(
+        padding: const EdgeInsets.all(24),
+        itemCount: 3, 
         itemBuilder: (context, index) {
-          final item = items[index];
-
           return Container(
             margin: const EdgeInsets.only(bottom: 16),
             padding: const EdgeInsets.all(16),
-
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: Colors.black.withOpacity(0.03),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
-                ),
+                )
               ],
             ),
-
             child: Row(
               children: [
-
+                // Gambar Barang (Mockup Placeholder)
                 Container(
-                  width: 80,
-                  height: 80,
+                  width: 70,
+                  height: 70,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFEAF2FF),
+                    color: const Color(0xFFEEF2FF), // Biru sangat muda
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: ClipRRect(
-  borderRadius: BorderRadius.circular(16),
-  child: Image.file(
-    File(item.fotoBarang),
-    fit: BoxFit.cover,
-  ),
-),
+                  child: const Icon(Icons.inventory_2_rounded, color: Color(0xFF3D5AFE), size: 32),
                 ),
-
                 const SizedBox(width: 16),
-
+                
+                // Info Barang
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-
-                      Text(
-                        item.namaBarang, 
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-
-                      const SizedBox(height: 6),
-
-                      Text(
-                        "Rp ${item.hargaSewa}/day",
-                        style: const TextStyle(
-                          color: Color(0xFF2563EB),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-
+                      Text("Barang Sewaan ${index + 1}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF2D3142))),
+                      const SizedBox(height: 4),
+                      const Text("Rp 50.000 / hari", style: TextStyle(color: Color(0xFF3D5AFE), fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
-
+                      // Label Status
                       Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(8),
                         ),
-                         child: const Text(
-    "Available",
-    style: TextStyle(
-      color: Colors.green,
-      fontWeight: FontWeight.bold,
-    ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 12),
-
-                      Row(
-                        children: [
-
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                Navigator.pushNamed(
-                                  context,
-                                  '/edit-item',
-                                  arguments: index,
-                                  );
-                              },
-                              icon: const Icon(Icons.edit),
-                              label: const Text("Edit"),
-                            ),
-                          ),
-
-                          const SizedBox(width: 10),
-
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: const Text("Delete Item"),
-                                    content: const Text(
-                                      "Are you sure you want to delete this item?",
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () {
-                                          Navigator.pop(context);
-                                        },
-                                        child: const Text("Cancel"),
-                                      ),
-                                      ElevatedButton(
-                                        onPressed: () {
-                                          Navigator.pop(context);
-                                          provider.removeItem(index);
-
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                "Item deleted.",
-                                              ),
-                                            ),
-                                          );
-                                        },
-                                        child: const Text("Delete"),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                              ),
-                              icon: const Icon(Icons.delete),
-                              label: const Text("Delete"),
-                            ),
-                          ),
-                        ],
+                        child: const Text("Tersedia", style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
                 ),
+                
+                // Action Buttons
+                Column(
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.pushNamed(context, '/edit-item'),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: Colors.orange.shade50, shape: BoxShape.circle),
+                        child: const Icon(Icons.edit_rounded, color: Colors.orange, size: 20),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text("Fitur hapus segera hadir.")),
+                        );
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(color: Colors.red.shade50, shape: BoxShape.circle),
+                        child: const Icon(Icons.delete_rounded, color: Colors.redAccent, size: 20),
+                      ),
+                    ),
+                  ],
+                )
               ],
             ),
           );
         },
       ),
-
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF2563EB),
-        onPressed: () {
-          Navigator.pushNamed(
-            context,
-            '/add-item',
-          );
-        },
-        child: const Icon(Icons.add),
+      // Tombol Tambah Barang yang lebih lebar dan premium (Extended FAB)
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: const Color(0xFF3D5AFE),
+        elevation: 4,
+        onPressed: () => Navigator.pushNamed(context, '/add-item'),
+        icon: const Icon(Icons.add_rounded, color: Colors.white),
+        label: const Text("Tambah", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
-      bottomNavigationBar: const VendorBottomNavbar(
-  currentIndex: 1,
-),
     );
   }
 }

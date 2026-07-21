@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import 'providers/item_provider.dart';
 import 'screens/auth/login_page.dart';
-import 'screens/auth/register_page.dart'; // Hanya pakai satu register page
+import 'screens/auth/register_page.dart'; 
 import 'screens/home/home_page.dart';
 import 'screens/item/item_detail_page.dart';
 import 'screens/item/item_list_page.dart';
@@ -17,6 +17,7 @@ import 'screens/rental/rental_history_page.dart';
 import 'screens/notification/notification_page.dart';
 import 'screens/wishlist/wishlist_page.dart';
 import 'screens/profile/profile_page.dart';
+import 'screens/category/category_page.dart';
 import 'screens/vendor/dashboard_vendor_page.dart';
 import 'screens/vendor/my_items_page.dart';
 import 'screens/vendor/add_item_page.dart';
@@ -66,7 +67,10 @@ class ItemLendApp extends StatelessWidget {
           '/notification': (context) => const NotificationPage(),
           '/wishlist': (context) => const WishlistPage(),
           '/profile': (context) => const ProfilePage(),
-          '/vendor-dashboard': (context) => const DashboardVendorPage(),
+          
+          // PERBAIKAN: Nama rute disamakan dengan panggilan di login_page.dart
+          '/dashboard_vendor': (context) => const DashboardVendorPage(), 
+          '/category': (context) => const CategoryPage(),
           '/my-items': (context) => const MyItemsPage(),
           '/add-item': (context) => const AddItemPage(),
           '/edit-item': (context) => const EditItemPage(),

@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import '../models/item_model.dart';
 
 class ItemProvider extends ChangeNotifier {
-  final List<Item> _items = [];
+  final List _items = [];
 
-  List<Item> get items => _items;
+  List get items => _items;
 
-  void addItem(Item item) {
+  void addItem(ItemModel item) {
     _items.add(item);
     notifyListeners();
   }
@@ -16,12 +16,12 @@ class ItemProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void updateItem(int index, Item item) {
+  void updateItem(int index, ItemModel item) {
     _items[index] = item;
     notifyListeners();
   }
 
-  Item getItem(int index) {
+  ItemModel getItem(int index) {
     return _items[index];
   }
 

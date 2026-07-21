@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
@@ -11,36 +10,36 @@ class EditItemPage extends StatefulWidget {
   const EditItemPage({super.key});
 
   @override
-  State<EditItemPage> createState() => _EditItemPageState();
+  State<EditItemPage> createState() => _EditItemPageState(); // Ditambah <EditItemPage>
 }
 
-class _EditItemPageState extends State<EditItemPage> {
-  final _formKey = GlobalKey<FormState>();
+class _EditItemPageState extends State<EditItemPage> { // Ditambah <EditItemPage>
+  final _formKey = GlobalKey<FormState>(); // <--- PENYEBAB ERROR VALIDATE (Ditambah <FormState>)
 
   final namaController = TextEditingController();
   final hargaController = TextEditingController();
   final deskripsiController = TextEditingController();
 
   final ImagePicker _picker = ImagePicker();
-
   File? imageFile;
 
-  String kategori = "Camera";
+  String kategori = "Dokumentasi";
 
-  final List<String> kategoriList = [
-    "Camera",
-    "Audio",
-    "Lighting",
-    "Projector",
-    "Laptop",
-    "Others",
+  final List<String> kategoriList = [ // Ditambah <String>
+    "Dokumentasi",
+    "Audio & Sound",
+    "Visual & Presentasi",
+    "Komunikasi",
+    "Logistik Acara",
+    "Lighting & Dekorasi",
+    "Konsumsi",
+    "Kostum & Properti",
   ];
 
   bool isLoaded = false;
 
-  Future<void> pickImage() async {
-    final XFile? picked =
-        await _picker.pickImage(source: ImageSource.gallery);
+  Future<void> pickImage() async { // Ditambah <void>
+    final XFile? picked = await _picker.pickImage(source: ImageSource.gallery);
 
     if (picked != null) {
       setState(() {
@@ -59,63 +58,63 @@ class _EditItemPageState extends State<EditItemPage> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = Provider.of<ItemProvider>(context);
-
-    final index =
-        ModalRoute.of(context)!.settings.arguments as int;
-
+    final provider = Provider.of<ItemProvider>(context); // Ditambah <ItemProvider>
+    final index = ModalRoute.of(context)!.settings.arguments as int;
     final item = provider.getItem(index);
 
     if (!isLoaded) {
       namaController.text = item.namaBarang;
-      hargaController.text = item.hargaSewa;
+      hargaController.text = item.harga.toString(); 
       deskripsiController.text = item.deskripsi;
-      kategori = item.kategoriBarang;
-      imageFile = File(item.fotoBarang);
-
+      
+      if (kategoriList.contains(item.kategori)) {
+        kategori = item.kategori; 
+      } else {
+        kategori = kategoriList.first;
+      }
+      
+      imageFile = File(item.gambar); 
       isLoaded = true;
     }
-        return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
 
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text("Edit Item"),
+        title: const Text("Edit Barang", style: TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        foregroundColor: const Color(0xFF2D3142),
         elevation: 0,
+        centerTitle: true,
       ),
-
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-
         child: Form(
           key: _formKey,
-
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
               Center(
                 child: GestureDetector(
                   onTap: pickImage,
-
                   child: Container(
                     width: 170,
                     height: 170,
-
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
+                      color: const Color(0xFFEEF2FF),
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.grey.shade300, width: 2, style: BorderStyle.solid),
                     ),
-
                     child: imageFile == null
-                        ? const Icon(
-                            Icons.add_a_photo,
-                            size: 60,
-                            color: Colors.grey,
+                        ? const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.add_a_photo, size: 50, color: Color(0xFF3D5AFE)),
+                              SizedBox(height: 8),
+                              Text("Ganti Foto", style: TextStyle(color: Color(0xFF3D5AFE), fontWeight: FontWeight.bold))
+                            ],
                           )
                         : ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(18),
                             child: Image.file(
                               imageFile!,
                               fit: BoxFit.cover,
@@ -124,29 +123,28 @@ class _EditItemPageState extends State<EditItemPage> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 30),
-
               TextFormField(
                 controller: namaController,
-                decoration: const InputDecoration(
-                  labelText: "Item Name",
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: "Nama Barang",
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                  filled: true,
+                  fillColor: Colors.white,
                 ),
-                validator: (value) =>
-                    value!.isEmpty ? "Required" : null,
+                validator: (value) => value!.isEmpty ? "Wajib diisi" : null,
               ),
-
               const SizedBox(height: 20),
-
-              DropdownButtonFormField<String>(
-                initialValue: kategori,
-                decoration: const InputDecoration(
-                  labelText: "Category",
-                  border: OutlineInputBorder(),
+              DropdownButtonFormField<String>( // <--- PENYEBAB ERROR VALUE (Ditambah <String>)
+                value: kategori,
+                decoration: InputDecoration(
+                  labelText: "Kategori",
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                  filled: true,
+                  fillColor: Colors.white,
                 ),
                 items: kategoriList.map((e) {
-                  return DropdownMenuItem(
+                  return DropdownMenuItem<String>( // Ditambah <String>
                     value: e,
                     child: Text(e),
                   );
@@ -157,78 +155,68 @@ class _EditItemPageState extends State<EditItemPage> {
                   });
                 },
               ),
-
               const SizedBox(height: 20),
-
               TextFormField(
                 controller: hargaController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "Price / Day",
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: "Harga Sewa / Hari (Rp)",
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                  filled: true,
+                  fillColor: Colors.white,
                 ),
-                validator: (value) =>
-                    value!.isEmpty ? "Required" : null,
+                validator: (value) => value!.isEmpty ? "Wajib diisi" : null,
               ),
-
               const SizedBox(height: 20),
-
               TextFormField(
                 controller: deskripsiController,
                 maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: "Description",
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: "Deskripsi",
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                  filled: true,
+                  fillColor: Colors.white,
                 ),
-                validator: (value) =>
-                    value!.isEmpty ? "Required" : null,
+                validator: (value) => value!.isEmpty ? "Wajib diisi" : null,
               ),
-
               const SizedBox(height: 30),
-
               SizedBox(
                 width: double.infinity,
                 height: 55,
-
                 child: ElevatedButton(
                   onPressed: () {
-
+                    // Sekarang validate() akan dikenali!
                     if (_formKey.currentState!.validate()) {
-
                       provider.updateItem(
                         index,
-                        Item(
+                        ItemModel(
                           id: item.id,
                           namaBarang: namaController.text,
-                          kategoriBarang: kategori,
+                          kategori: kategori,
                           deskripsi: deskripsiController.text,
-                          hargaSewa: hargaController.text,
-                          fotoBarang: imageFile!.path,
+                          harga: int.tryParse(hargaController.text) ?? 0,
+                          gambar: imageFile!.path,
+                          lokasi: item.lokasi, 
                         ),
                       );
-
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text(
-                            "Item updated successfully",
-                          ),
+                          content: Text("Barang berhasil diperbarui! 🎉"),
+                          backgroundColor: Colors.green,
                         ),
                       );
-
                       Navigator.pop(context);
                     }
                   },
-
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
-                  ),
-
-                  child: const Text(
-                    "Save Changes",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
+                    backgroundColor: const Color(0xFF3D5AFE),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
                     ),
+                  ),
+                  child: const Text(
+                    "Simpan Perubahan",
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),

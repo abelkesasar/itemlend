@@ -8,160 +8,224 @@ class ChatDetailPage extends StatefulWidget {
 }
 
 class _ChatDetailPageState extends State<ChatDetailPage> {
+  final TextEditingController _messageController = TextEditingController();
 
-  final TextEditingController messageController =
-      TextEditingController();
-
-  final List<Map<String, dynamic>> messages = [
+  // Dummy data untuk percakapan chat
+  final List<Map<String, dynamic>> _messages = [
     {
-      "me": false,
-      "text": "Halo kak, barang masih tersedia?"
+      "text": "Halo! Apakah Sony Camera EOS 700D untuk tanggal 20 Juli masih tersedia?",
+      "isMe": true,
+      "time": "10:00"
     },
     {
-      "me": true,
-      "text": "Masih kak, silakan diajukan."
+      "text": "Halo kak! Iya masih tersedia, siap disewa untuk tanggal tersebut. Mau diambil sendiri atau diantar?",
+      "isMe": false,
+      "time": "10:05"
     },
     {
-      "me": false,
-      "text": "Baik kak, saya sewa tanggal 5."
+      "text": "Rencananya mau diambil sendiri aja kak ke toko.",
+      "isMe": true,
+      "time": "10:06"
     },
   ];
 
+  void _sendMessage() {
+    if (_messageController.text.trim().isNotEmpty) {
+      setState(() {
+        _messages.add({
+          "text": _messageController.text,
+          "isMe": true,
+          "time": "10:10", // Harusnya pakai format waktu realtime (DateTime.now)
+        });
+      });
+      _messageController.clear();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-
+      backgroundColor: const Color(0xFFF8F9FA), // Latar belakang abu-abu sangat terang
+      
+      // 1. APP BAR KHUSUS CHAT (Ada foto profil & status)
       appBar: AppBar(
-        elevation: 0,
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-
-        title: const Row(
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF2D3142), size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        titleSpacing: 0,
+        title: Row(
           children: [
-
-            CircleAvatar(
-              backgroundColor: Colors.blue,
-              child: Icon(
-                Icons.store,
-                color: Colors.white,
-              ),
+            const CircleAvatar(
+              radius: 18,
+              backgroundColor: Color(0xFFEEF2FF),
+              child: Icon(Icons.storefront_rounded, color: Color(0xFF3D5AFE), size: 20),
             ),
-
-            SizedBox(width: 12),
-
-            Text(
-              "Sony Camera Rental",
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("John Doe (Vendor)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF2D3142))),
+                Row(
+                  children: [
+                    Container(
+                      width: 8,
+                      height: 8,
+                      decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
+                    ),
+                    const SizedBox(width: 6),
+                    const Text("Online", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
+              ],
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_vert_rounded, color: Color(0xFF2D3142)),
+            onPressed: () {},
+          )
+        ],
       ),
 
+      // 2. AREA CHAT BUBBLE
       body: Column(
         children: [
-
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: messages.length,
-
+              padding: const EdgeInsets.all(20),
+              itemCount: _messages.length,
               itemBuilder: (context, index) {
+                final message = _messages[index];
+                final isMe = message['isMe'];
 
-                final message = messages[index];
-
-                return Align(
-                  alignment: message["me"]
-                      ? Alignment.centerRight
-                      : Alignment.centerLeft,
-
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(14),
-
-                    constraints: const BoxConstraints(
-                      maxWidth: 280,
-                    ),
-
-                    decoration: BoxDecoration(
-                      color: message["me"]
-                          ? Colors.blue
-                          : Colors.white,
-
-                      borderRadius:
-                          BorderRadius.circular(18),
-                    ),
-
-                    child: Text(
-                      message["text"],
-
-                      style: TextStyle(
-                        color: message["me"]
-                            ? Colors.white
-                            : Colors.black87,
-                      ),
-                    ),
-                  ),
-                );
+                return _buildChatBubble(message['text'], message['time'], isMe);
               },
             ),
           ),
 
-          SafeArea(
-            child: Container(
-              padding: const EdgeInsets.all(12),
-
+          // 3. AREA INPUT PESAN
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -5),
+                )
+              ],
+            ),
+            child: SafeArea(
               child: Row(
                 children: [
-
+                  // Tombol Attachment
+                  Container(
+                    decoration: BoxDecoration(color: Colors.grey.shade100, shape: BoxShape.circle),
+                    child: IconButton(
+                      icon: const Icon(Icons.attach_file_rounded, color: Colors.grey),
+                      onPressed: () {},
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  
+                  // Kolom Ketik
                   Expanded(
                     child: TextField(
-                      controller: messageController,
-
+                      controller: _messageController,
                       decoration: InputDecoration(
-                        hintText: "Type message...",
+                        hintText: "Ketik pesan...",
+                        hintStyle: TextStyle(color: Colors.grey.shade400),
                         filled: true,
-                        fillColor: Colors.white,
-
+                        fillColor: const Color(0xFFF8F9FA),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                         border: OutlineInputBorder(
-                          borderRadius:
-                              BorderRadius.circular(30),
+                          borderRadius: BorderRadius.circular(24),
                           borderSide: BorderSide.none,
                         ),
                       ),
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _sendMessage(),
                     ),
                   ),
+                  const SizedBox(width: 12),
 
-                  const SizedBox(width: 10),
-
-                  CircleAvatar(
-                    radius: 26,
-                    backgroundColor: Colors.blue,
-
-                    child: IconButton(
-                      onPressed: () {
-
-                        if (messageController.text.isEmpty) {
-                          return;
-                        }
-
-                        setState(() {
-                          messages.add({
-                            "me": true,
-                            "text": messageController.text,
-                          });
-                        });
-
-                        messageController.clear();
-                      },
-                      icon: const Icon(
-                        Icons.send,
-                        color: Colors.white,
+                  // Tombol Kirim
+                  GestureDetector(
+                    onTap: _sendMessage,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF3D5AFE),
+                        shape: BoxShape.circle,
                       ),
+                      child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Widget Pembantu untuk Chat Bubble
+  Widget _buildChatBubble(String text, String time, bool isMe) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isMe) ...[
+            const CircleAvatar(
+              radius: 14,
+              backgroundColor: Color(0xFFEEF2FF),
+              child: Icon(Icons.storefront_rounded, color: Color(0xFF3D5AFE), size: 14),
+            ),
+            const SizedBox(width: 8),
+          ],
+          
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isMe ? const Color(0xFF3D5AFE) : Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(20),
+                  topRight: const Radius.circular(20),
+                  // Ujung bawah yang tajam tergantung siapa yang mengirim
+                  bottomLeft: isMe ? const Radius.circular(20) : const Radius.circular(0),
+                  bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(20),
+                ),
+                boxShadow: isMe
+                    ? [] // Pesan kita tidak pakai shadow agar terkesan flat
+                    : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 5, offset: const Offset(0, 2))],
+              ),
+              child: Column(
+                crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    text,
+                    style: TextStyle(
+                      color: isMe ? Colors.white : const Color(0xFF2D3142),
+                      fontSize: 15,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    time,
+                    style: TextStyle(
+                      color: isMe ? Colors.white70 : Colors.grey.shade500,
+                      fontSize: 10,
                     ),
                   ),
                 ],

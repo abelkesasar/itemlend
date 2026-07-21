@@ -1,11 +1,4 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:provider/provider.dart';
-
-import '../../models/item_model.dart';
-import '../../providers/item_provider.dart';
 
 class AddItemPage extends StatefulWidget {
   const AddItemPage({super.key});
@@ -15,285 +8,154 @@ class AddItemPage extends StatefulWidget {
 }
 
 class _AddItemPageState extends State<AddItemPage> {
-  final _formKey = GlobalKey<FormState>();
-
-  final TextEditingController namaController = TextEditingController();
-  final TextEditingController hargaController = TextEditingController();
-  final TextEditingController deskripsiController =
-      TextEditingController();
-
-  final ImagePicker _picker = ImagePicker();
-
-  File? imageFile;
-
-  String kategori = "Camera";
-
-  final List<String> kategoriList = [
-    "Camera",
-    "Audio",
-    "Lighting",
-    "Projector",
-    "Laptop",
-    "Others",
-  ];
-
-  Future<void> pickImage() async {
-    final XFile? picked =
-        await _picker.pickImage(source: ImageSource.gallery);
-
-    if (picked != null) {
-      setState(() {
-        imageFile = File(picked.path);
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    namaController.dispose();
-    hargaController.dispose();
-    deskripsiController.dispose();
-    super.dispose();
-  }
-
-  void simpanItem() {
-    if (!_formKey.currentState!.validate()) return;
-
-    if (imageFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please choose an image"),
-        ),
-      );
-      return;
-    }
-
-    final item = Item(
-      namaBarang: namaController.text,
-      kategoriBarang: kategori,
-      deskripsi: deskripsiController.text,
-      hargaSewa: hargaController.text,
-      fotoBarang: imageFile!.path,
-    );
-
-    context.read<ItemProvider>().addItem(item);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Item added successfully"),
-      ),
-    );
-
-    Navigator.pushReplacementNamed(
-      context,
-      '/my-items',
-    );
-  }
+  final nameController = TextEditingController();
+  final priceController = TextEditingController();
+  final descController = TextEditingController();
+  
+  String selectedCategory = 'Elektronik'; 
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text("Add Item"),
+        title: const Text("Tambah Barang", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2D3142))),
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
         elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Color(0xFF3D5AFE)),
+        surfaceTintColor: Colors.transparent,
       ),
-
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-
-        child: Form(
-          key: _formKey,
-
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-
-            children: [
-
-              Center(
-                child: GestureDetector(
-                  onTap: pickImage,
-
-                  child: Container(
-                    width: 170,
-                    height: 170,
-
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-
-                    child: imageFile == null
-                        ? const Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.add_a_photo,
-                                size: 55,
-                                color: Colors.grey,
-                              ),
-                              SizedBox(height: 10),
-                              Text("Choose Image"),
-                            ],
-                          )
-                        : ClipRRect(
-                            borderRadius:
-                                BorderRadius.circular(20),
-                            child: Image.file(
-                              imageFile!,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 30),
-                            const Text(
-                "Item Name",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              TextFormField(
-                controller: namaController,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return "Item name is required";
-                  }
-                  return null;
-                },
-                decoration: InputDecoration(
-                  hintText: "Enter item name",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              const Text(
-                "Category",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              DropdownButtonFormField<String>(
-                initialValue: kategori,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                ),
-                items: kategoriList.map((item) {
-                  return DropdownMenuItem(
-                    value: item,
-                    child: Text(item),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    kategori = value!;
-                  });
-                },
-              ),
-
-              const SizedBox(height: 20),
-
-              const Text(
-                "Price / Day",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              TextFormField(
-                controller: hargaController,
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return "Price is required";
-                  }
-                  return null;
-                },
-                decoration: InputDecoration(
-                  hintText: "Example : 150000",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              const Text(
-                "Description",
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const SizedBox(height: 8),
-
-              TextFormField(
-                controller: deskripsiController,
-                maxLines: 4,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return "Description is required";
-                  }
-                  return null;
-                },
-                decoration: InputDecoration(
-                  hintText: "Item description",
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 35),
-
-              SizedBox(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Kotak Upload Foto (Modern, mirip area Drag & Drop)
+            GestureDetector(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Membuka galeri...")));
+              },
+              child: Container(
+                height: 160,
                 width: double.infinity,
-                height: 55,
-
-                child: ElevatedButton(
-                  onPressed: simpanItem,
-
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F9FA),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.grey.shade300, width: 2), // Outline tegas
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.add_a_photo_rounded, size: 32, color: Color(0xFF3D5AFE)),
                     ),
-                  ),
-
-                  child: const Text(
-                    "Save Item",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                    const SizedBox(height: 16),
+                    const Text("Ketuk untuk upload foto", style: TextStyle(color: Color(0xFF2D3142), fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Text("Format: JPG, PNG (Maks. 2MB)", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 32),
+
+            _buildLabel("Nama Barang"),
+            _buildTextField(nameController, "Contoh: Kamera Canon EOS 700D"),
+
+            _buildLabel("Kategori"),
+            _buildDropdown(),
+
+            _buildLabel("Harga Sewa per Hari (Rp)"),
+            _buildTextField(priceController, "Contoh: 50000", isNumber: true, prefix: "Rp "),
+
+            _buildLabel("Deskripsi Barang"),
+            _buildTextField(descController, "Jelaskan kondisi, kelengkapan, dan syarat sewa...", maxLines: 4),
+
+            const SizedBox(height: 40),
+
+            // Tombol Simpan
+            SizedBox(
+              width: double.infinity,
+              height: 55, // Sedikit lebih tinggi agar premium
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF3D5AFE),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text("Barang berhasil ditambahkan!"), backgroundColor: Colors.green),
+                  );
+                  Navigator.pop(context); 
+                },
+                child: const Text("Simpan Barang", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+
+  // Widget Pembantu untuk Label
+  Widget _buildLabel(String text) => Padding(
+    padding: const EdgeInsets.only(bottom: 8, top: 20),
+    child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF2D3142))),
+  );
+
+  // Widget Pembantu untuk TextField
+  Widget _buildTextField(TextEditingController controller, String hint, {int maxLines = 1, bool isNumber = false, String? prefix}) => TextField(
+    controller: controller,
+    maxLines: maxLines,
+    keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+    decoration: InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: Colors.grey.shade400),
+      prefixText: prefix, // Menambahkan teks Rp di depan form harga
+      prefixStyle: const TextStyle(color: Color(0xFF2D3142), fontWeight: FontWeight.bold),
+      filled: true,
+      fillColor: const Color(0xFFF8F9FA), // Latar abu-abu sangat terang
+      contentPadding: const EdgeInsets.all(16),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade200)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey.shade200)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: Color(0xFF3D5AFE), width: 1.5)),
+    ),
+  );
+
+  // Widget Pembantu untuk Dropdown Kategori
+  Widget _buildDropdown() => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF8F9FA),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: Colors.grey.shade200),
+    ),
+    child: DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        value: selectedCategory,
+        isExpanded: true,
+        dropdownColor: Colors.white,
+        icon: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.grey),
+        style: const TextStyle(color: Color(0xFF2D3142), fontSize: 16),
+        items: ['Elektronik', 'Pakaian', 'Otomotif', 'Peralatan', 'Lainnya'].map((String value) {
+          return DropdownMenuItem<String>(
+            value: value,
+            child: Text(value),
+          );
+        }).toList(),
+        onChanged: (newValue) {
+          setState(() {
+            selectedCategory = newValue!;
+          });
+        },
+      ),
+    ),
+  );
 }

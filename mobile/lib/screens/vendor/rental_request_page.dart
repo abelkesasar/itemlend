@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../widgets/vendor_bottom_navbar.dart';
 
 class RentalRequestPage extends StatefulWidget {
   const RentalRequestPage({super.key});
@@ -9,227 +8,217 @@ class RentalRequestPage extends StatefulWidget {
 }
 
 class _RentalRequestPageState extends State<RentalRequestPage> {
-  final List<Map<String, dynamic>> requests = [
+  // Dummy data pesanan masuk (nanti ini diganti dengan data dari MySQL/API)
+  final List<Map<String, dynamic>> _requests = [
     {
-      "item": "Sony Camera",
-      "customer": "Danial Alaska",
-      "date": "2 Jul 2026 - 4 Jul 2026",
-      "price": "Rp300.000",
-      "status": "Waiting",
+      "id": "REQ-001",
+      "user_name": "Danial Alaska", // Nama Mahasiswa
+      "item_name": "Sony Camera EOS 700D",
+      "rental_date": "20 Jul - 22 Jul 2026",
+      "price": "Rp 302.000",
+      "image_icon": Icons.camera_alt_rounded
     },
     {
-      "item": "Lighting Set",
-      "customer": "Aldo Saputra",
-      "date": "6 Jul 2026 - 8 Jul 2026",
-      "price": "Rp400.000",
-      "status": "Waiting",
-    },
+      "id": "REQ-002",
+      "user_name": "Budi Santoso",
+      "item_name": "Tenda Dome 4 Orang",
+      "rental_date": "25 Jul - 27 Jul 2026",
+      "price": "Rp 150.000",
+      "image_icon": Icons.holiday_village_rounded
+    }
   ];
 
-  Color statusColor(String status) {
-    switch (status) {
-      case "Approved":
-        return Colors.green;
-
-      case "Rejected":
-        return Colors.red;
-
-      default:
-        return Colors.orange;
-    }
+  // Fungsi simulasi untuk aksi Terima / Tolak
+  void _handleRequest(int index, bool isAccepted) {
+    final action = isAccepted ? "diterima" : "ditolak";
+    
+    // Tampilkan notifikasi (SnackBar)
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Pesanan dari ${_requests[index]['user_name']} berhasil $action!"),
+        backgroundColor: isAccepted ? Colors.green : Colors.red,
+      ),
+    );
+    
+    // Hapus data dari UI
+    setState(() {
+      _requests.removeAt(index);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-        return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FA), // Latar abu-abu terang
+      
       appBar: AppBar(
-        title: const Text("Rental Request"),
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
         elevation: 0,
+        title: const Text(
+          "Pesanan Masuk",
+          style: TextStyle(color: Color(0xFF2D3142), fontWeight: FontWeight.bold),
+        ),
+        iconTheme: const IconThemeData(color: Color(0xFF2D3142)),
+        centerTitle: true,
+        surfaceTintColor: Colors.transparent,
       ),
-
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: requests.length,
-        itemBuilder: (context, index) {
-
-          final request = requests[index];
-
-          return Container(
-            margin: const EdgeInsets.only(bottom: 18),
-            padding: const EdgeInsets.all(16),
-
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+      
+      // Jika _requests kosong, tampilkan layar kosong yang rapi
+      body: _requests.isEmpty
+          ? _buildEmptyState()
+          : ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: _requests.length,
+              itemBuilder: (context, index) {
+                return _buildRequestCard(index);
+              },
             ),
+    );
+  }
 
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+  // Widget saat tidak ada pesanan masuk
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.inbox_rounded, size: 80, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          const Text(
+            "Hore! Belum ada pesanan baru.",
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "Pesanan yang masuk akan muncul di sini.",
+            style: TextStyle(color: Colors.grey),
+          )
+        ],
+      ),
+    );
+  }
 
+  // Widget Card untuk setiap pesanan
+  Widget _buildRequestCard(int index) {
+    final request = _requests[index];
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        children: [
+          // Header: Info Mahasiswa Penyewa
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
               children: [
-
-                Row(
-                  children: [
-
-                    Container(
-                      width: 70,
-                      height: 70,
-
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFEAF2FF),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-
-                      child: const Icon(
-                        Icons.inventory_2_outlined,
-                        color: Color(0xFF2563EB),
-                        size: 35,
-                      ),
-                    ),
-
-                    const SizedBox(width: 16),
-
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-
-                        children: [
-
-                          Text(
-                            request["item"],
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-
-                          const SizedBox(height: 6),
-
-                          Text(
-                            "Customer : ${request["customer"]}",
-                          ),
-
-                          Text(
-                            request["date"],
-                          ),
-
-                          const SizedBox(height: 5),
-
-                          Text(
-                            request["price"],
-                            style: const TextStyle(
-                              color: Color(0xFF2563EB),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: const Color(0xFFEEF2FF),
+                  // Ambil inisial nama untuk avatar
+                  child: Text(request["user_name"][0], style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3D5AFE))),
                 ),
-
-                const SizedBox(height: 18),
-
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
-
-                  decoration: BoxDecoration(
-                    color: statusColor(request["status"])
-                        .withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(25),
-                  ),
-
-                  child: Text(
-                    request["status"],
-                    style: TextStyle(
-                      color: statusColor(request["status"]),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 18),
-
-                if (request["status"] == "Waiting")
-
-                  Row(
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () {
-
-                            setState(() {
-                              request["status"] = "Rejected";
-                            });
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Rental Rejected"),
-                              ),
-                            );
-                          },
-
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                          ),
-
-                          child: const Text("Reject"),
-                        ),
-                      ),
-
-                      const SizedBox(width: 12),
-
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () {
-
-                            setState(() {
-                              request["status"] = "Approved";
-                            });
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Rental Approved"),
-                              ),
-                            );
-                          },
-
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                          ),
-
-                          child: const Text(
-                            "Approve",
-                            style: TextStyle(
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
+                      Text(request["user_name"], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF2D3142))),
+                      const Text("Mahasiswa", style: TextStyle(color: Colors.grey, fontSize: 12)),
                     ],
                   ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                  child: const Text("Menunggu", style: TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold)),
+                )
               ],
             ),
-          );
-        },
-      ),
-       bottomNavigationBar: const VendorBottomNavbar(
-        currentIndex: 2,
+          ),
+          
+          const Divider(height: 1, color: Color(0xFFEEEEEE)),
+          
+          // Body: Info Barang yang Disewa
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(color: const Color(0xFFEEF2FF), borderRadius: BorderRadius.circular(12)),
+                  child: Icon(request["image_icon"], color: const Color(0xFF3D5AFE)),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(request["item_name"], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF2D3142))),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          const Icon(Icons.calendar_today_rounded, size: 14, color: Colors.grey),
+                          const SizedBox(width: 4),
+                          Text(request["rental_date"], style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(request["price"], style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF3D5AFE))),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const Divider(height: 1, color: Color(0xFFEEEEEE)),
+          
+          // Footer: Tombol Terima / Tolak
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _handleRequest(index, false),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      side: const BorderSide(color: Colors.red),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text("Tolak", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _handleRequest(index, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF3D5AFE),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text("Terima", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
