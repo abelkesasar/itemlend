@@ -2,63 +2,45 @@
 session_start();
 require '../config/db.php';
 
-$id = $_SESSION['user'];
+if (!isset($_SESSION['user'])) {
+    header("Location: ../index.php?page=login");
+    exit;
+}
 
+$id       = $_SESSION['user'];
 $username = $_POST['username'];
-$email = $_POST['email'];
+$email    = $_POST['email'];
 $nomor_wa = $_POST['nomor_wa'];
-$alamat = $_POST['alamat'];
+$alamat   = $_POST['alamat'];
+$deskripsi_vendor = $_POST['deskripsi_vendor'] ?? null;
 
-$stmtUser = $conn->prepare("
-SELECT * FROM users
-WHERE id = ?
-");
+// Ambil data lama dulu (buat foto & password default)
+$stmt = $conn->prepare("SELECT foto_profil, password FROM users WHERE id = ?");
+$stmt->execute([$id]);
+$old = $stmt->fetch(PDO::FETCH_ASSOC);
 
-$stmtUser->execute([$id]);
+$foto_profil = $old['foto_profil'];
+$password    = $old['password'];
 
-$user = $stmtUser->fetch(PDO::FETCH_ASSOC);
+// Ganti foto kalau ada upload baru
+if (!empty($_FILES['foto_profil']['name'])) {
+    $foto_profil = time() . '_' . $_FILES['foto_profil']['name'];
+    move_uploaded_file($_FILES['foto_profil']['tmp_name'], "../uploads/" . $foto_profil);
+}
 
-$foto_profil = $user['foto_profil'] ?? '';
-
-if(isset($_FILES['foto_profil']) &&
-$_FILES['foto_profil']['name'] != ''){
-
-    $namaFile = time() . '_' . $_FILES['foto_profil']['name'];
-
-    move_uploaded_file(
-        $_FILES['foto_profil']['tmp_name'],
-        "../uploads/" . $namaFile
-    );
-
-    $foto_profil = $namaFile;
+// Ganti password kalau diisi
+if (!empty($_POST['password'])) {
+    $password = md5($_POST['password']);
 }
 
 $stmt = $conn->prepare("
-UPDATE users
-SET
-username = ?,
-email = ?,
-nomor_wa = ?,
-alamat = ?,
-foto_profil = ?
-WHERE id = ?
+    UPDATE users
+    SET username = ?, email = ?, nomor_wa = ?, alamat = ?, deskripsi_vendor = ?, foto_profil = ?, password = ?
+    WHERE id = ?
 ");
-
-$stmt->execute([
-    $username,
-    $email,
-    $nomor_wa,
-    $alamat,
-    $foto_profil,
-    $id
-]);
+$stmt->execute([$username, $email, $nomor_wa, $alamat, $deskripsi_vendor, $foto_profil, $password, $id]);
 
 $_SESSION['username'] = $username;
 
-echo "
-<script>
-alert('Profil berhasil diupdate!');
-window.location='../index.php?page=profile';
-</script>
-";
-?>
+header("Location: ../index.php?page=profile&success=1");
+exit;

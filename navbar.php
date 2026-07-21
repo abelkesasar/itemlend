@@ -285,7 +285,7 @@
                             <div class="dd-divider"></div>
 
                             <a href="index.php?page=barangsaya" class="dd-item">
-                                <i class="ti ti-store"></i> Toko Saya
+                            <i class="ti ti-building-store"></i> Toko Saya
                             </a>
                             <a href="index.php?page=pesanansaya" class="dd-item">
                                 <i class="ti ti-clipboard-list"></i> Pesanan Saya
@@ -335,7 +335,7 @@
         <?php if (isset($_SESSION['user'])): ?>
             <a href="index.php?page=tambah_barang"   class="nav-link"><i class="ti ti-plus"></i> Jual/Sewa Barang</a>
             <div class="dd-divider" style="margin:4px 0;"></div>
-            <a href="index.php?page=barangsaya"      class="nav-link"><i class="ti ti-store"></i> Toko Saya</a>
+            <a href="index.php?page=barangsaya"      class="nav-link"><i class="ti ti-building-store"></i> Toko Saya</a>
             <a href="index.php?page=pesanansaya"     class="nav-link"><i class="ti ti-clipboard-list"></i> Pesanan Saya</a>
             
             <div class="dd-divider" style="margin:4px 0;"></div>

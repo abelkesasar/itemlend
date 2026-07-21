@@ -13,13 +13,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     if ($id > 0 && in_array($action, ['approved', 'rejected'])) {
-        $stmt = $conn->prepare("UPDATE users SET status = :status WHERE id = :id");
-        $stmt->execute([
-            ':status' => $action,
-            ':id' => $id
-        ]);
+        if ($action === 'approved') {
+            $stmt = $conn->prepare("UPDATE users SET status = 'approved' WHERE id = :id");
+            $stmt->execute([':id' => $id]);
+        } else {
+            // Reject = hapus akun user, jadi gak perlu tambah enum 'rejected' di DB
+            $stmt = $conn->prepare("DELETE FROM users WHERE id = :id");
+            $stmt->execute([':id' => $id]);
     }
-
+    }
     header("Location: users.php");
     exit;
 }
