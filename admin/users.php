@@ -17,10 +17,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $conn->prepare("UPDATE users SET status = 'approved' WHERE id = :id");
             $stmt->execute([':id' => $id]);
         } else {
-            // Reject = hapus akun user, jadi gak perlu tambah enum 'rejected' di DB
             $stmt = $conn->prepare("DELETE FROM users WHERE id = :id");
             $stmt->execute([':id' => $id]);
-    }
+        }
     }
     header("Location: users.php");
     exit;
@@ -29,9 +28,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Stats untuk sidebar
 $pending_users = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
 
-// Ambil semua user
+// Ambil semua user (tambah no_hp)
 $users = $conn->query("
-    SELECT id, username, role, status, alamat, foto_profil, ktm, ktp
+    SELECT id, username, role, status, alamat, nomor_wa, foto_profil, ktm, ktp
     FROM users
     ORDER BY 
         CASE 
@@ -43,9 +42,9 @@ $users = $conn->query("
         id DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-$total_users = count($users);
+$total_users    = count($users);
 $total_approved = $conn->query("SELECT COUNT(*) FROM users WHERE status='approved'")->fetchColumn();
-$total_pending = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
+$total_pending  = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
 $total_rejected = $conn->query("SELECT COUNT(*) FROM users WHERE status='rejected'")->fetchColumn();
 
 function statusBadge($status) {
@@ -56,12 +55,20 @@ function statusBadge($status) {
     } elseif ($status === 'rejected') {
         return '<span class="badge badge-rejected"><i class="ti ti-circle-x"></i> Rejected</span>';
     }
-
     return '<span class="badge badge-unknown">Unknown</span>';
 }
 
 function userInitial($name) {
     return strtoupper(substr($name ?? '?', 0, 2));
+}
+
+function waLink($nomor_wa) {
+    if (empty($nomor_wa)) return null;
+    $number = preg_replace('/[^0-9]/', '', $nomor_wa);
+    if (str_starts_with($number, '0')) {
+        $number = '62' . substr($number, 1);
+    }
+    return 'https://wa.me/' . $number;
 }
 ?>
 <!DOCTYPE html>
@@ -197,6 +204,7 @@ function userInitial($name) {
             align-items: center;
             justify-content: space-between;
             gap: 12px;
+            flex-wrap: wrap;
         }
 
         .table-title {
@@ -208,6 +216,37 @@ function userInitial($name) {
             font-size: 12px;
             color: #6b7280;
             margin-top: 2px;
+        }
+
+        /* Search */
+        .search-wrap {
+            position: relative;
+        }
+
+        .search-input {
+            padding: 8px 12px 8px 36px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 13px;
+            font-family: inherit;
+            width: 220px;
+            outline: none;
+            transition: border 0.15s;
+            color: #1a1d2e;
+        }
+
+        .search-input:focus {
+            border-color: #3d4bff;
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 15px;
+            pointer-events: none;
         }
 
         table {
@@ -268,6 +307,7 @@ function userInitial($name) {
             font-size: 11px;
             font-weight: 700;
             flex-shrink: 0;
+            overflow: hidden;
         }
 
         .user-name {
@@ -374,6 +414,7 @@ function userInitial($name) {
             align-items: center;
             gap: 5px;
             white-space: nowrap;
+            text-decoration: none;
         }
 
         .btn-approve {
@@ -395,10 +436,27 @@ function userInitial($name) {
             background: #fee2e2;
         }
 
+        .btn-wa {
+            background: #e7f9ef;
+            color: #16a34a;
+            border: 1px solid #bbf7d0;
+            text-decoration: none;
+        }
+
+        .btn-wa:hover {
+            background: #dcfce7;
+        }
+
         .btn-disabled {
             background: #f3f4f6;
             color: #9ca3af;
             cursor: default;
+            border: none;
+        }
+
+        .no-hp-empty {
+            font-size: 11px;
+            color: #9ca3af;
         }
 
         .empty-state {
@@ -406,6 +464,14 @@ function userInitial($name) {
             padding: 48px 20px;
             color: #9ca3af;
             font-size: 13px;
+        }
+
+        .no-result {
+            text-align: center;
+            padding: 32px 20px;
+            color: #9ca3af;
+            font-size: 13px;
+            display: none;
         }
 
         @media (max-width: 1000px) {
@@ -433,6 +499,10 @@ function userInitial($name) {
 
             .table-card {
                 overflow-x: auto;
+            }
+
+            .search-input {
+                width: 100%;
             }
         }
     </style>
@@ -482,6 +552,16 @@ function userInitial($name) {
                         <div class="table-title">Daftar Users</div>
                         <div class="table-sub">User pending ditampilkan paling atas</div>
                     </div>
+                    <div class="search-wrap">
+                        <i class="ti ti-search search-icon"></i>
+                        <input
+                            type="text"
+                            id="searchInput"
+                            class="search-input"
+                            placeholder="Cari username / ID..."
+                            oninput="filterUsers()"
+                        >
+                    </div>
                 </div>
 
                 <?php if (empty($users)): ?>
@@ -495,19 +575,28 @@ function userInitial($name) {
                                 <th>Status</th>
                                 <th class="hide-md">Alamat</th>
                                 <th class="hide-md">Dokumen</th>
+                                <th>WA</th>
                                 <th>Aksi</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="userTableBody">
                             <?php foreach ($users as $u): ?>
                                 <tr>
                                     <td>
                                         <div class="user-cell">
-                                            <div class="user-av"><?= userInitial($u['username']) ?></div>
+                                            <div class="user-av">
+                                                <?php if (!empty($u['foto_profil']) && file_exists("../uploads/" . $u['foto_profil'])): ?>
+                                                    <img src="../uploads/<?= htmlspecialchars($u['foto_profil']) ?>"
+                                                         alt="Foto Profil"
+                                                         style="width:100%;height:100%;object-fit:cover;">
+                                                <?php else: ?>
+                                                    <?= userInitial($u['username']) ?>
+                                                <?php endif; ?>
+                                            </div>
                                             <div>
                                                 <a href="user_detail.php?id=<?= $u['id'] ?>" style="text-decoration:none;">
-    <div class="user-name" style="color:#3d4bff;"><?= htmlspecialchars($u['username']) ?></div>
-</a>
+                                                    <div class="user-name" style="color:#3d4bff;"><?= htmlspecialchars($u['username']) ?></div>
+                                                </a>
                                                 <div class="user-id">ID: <?= $u['id'] ?></div>
                                             </div>
                                         </div>
@@ -548,6 +637,17 @@ function userInitial($name) {
                                     </td>
 
                                     <td>
+                                        <?php $wa = waLink($u['nomor_wa'] ?? ''); ?>
+                                        <?php if ($wa): ?>
+                                            <a href="<?= $wa ?>" target="_blank" class="btn btn-wa">
+                                                <i class="ti ti-brand-whatsapp"></i> WA
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="no-hp-empty">-</span>
+                                        <?php endif; ?>
+                                    </td>
+
+                                    <td>
                                         <div class="actions">
                                             <?php if ($u['status'] === 'pending'): ?>
                                                 <form method="POST" style="display:inline;">
@@ -558,7 +658,7 @@ function userInitial($name) {
                                                     </button>
                                                 </form>
 
-                                                <form method="POST" style="display:inline;" onsubmit="return confirm('Tolak user ini?')">
+                                                <form method="POST" style="display:inline;" onsubmit="return confirm('Tolak dan hapus user ini?')">
                                                     <input type="hidden" name="id" value="<?= $u['id'] ?>">
                                                     <input type="hidden" name="action" value="rejected">
                                                     <button type="submit" class="btn btn-reject">
@@ -576,6 +676,10 @@ function userInitial($name) {
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                    <div class="no-result" id="noResult">
+                        <i class="ti ti-search-off" style="font-size:24px;display:block;margin-bottom:8px;"></i>
+                        User tidak ditemukan.
+                    </div>
                 <?php endif; ?>
 
             </div>
@@ -583,5 +687,24 @@ function userInitial($name) {
         </div>
     </div>
 </div>
+
+<script>
+function filterUsers() {
+    const keyword = document.getElementById('searchInput').value.toLowerCase().trim();
+    const rows    = document.querySelectorAll('#userTableBody tr');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const username = row.querySelector('.user-name')?.textContent.toLowerCase() ?? '';
+        const userId   = row.querySelector('.user-id')?.textContent.toLowerCase() ?? '';
+        const match    = username.includes(keyword) || userId.includes(keyword);
+        row.style.display = match ? '' : 'none';
+        if (match) visibleCount++;
+    });
+
+    document.getElementById('noResult').style.display = visibleCount === 0 ? 'block' : 'none';
+}
+</script>
+
 </body>
 </html>

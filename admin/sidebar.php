@@ -37,6 +37,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
         top: 0; left: 0;
         height: 100vh;
         z-index: 100;
+        transition: transform 0.25s ease;
     }
     .sidebar-logo {
         padding: 24px 20px 20px;
@@ -84,13 +85,57 @@ $current_page = basename($_SERVER['PHP_SELF']);
     .admin-wrap { display: flex; min-height: 100vh; }
     .main { margin-left: 220px; flex: 1; display: flex; flex-direction: column; }
 
-    @media (max-width: 600px) {
-        .sidebar { display: none; }
-        .main { margin-left: 0; }
+    /* Tombol hamburger — tersembunyi di desktop */
+    .sidebar-toggle {
+        display: none;
+        position: fixed;
+        top: 12px; left: 12px;
+        z-index: 200;
+        width: 36px; height: 36px;
+        background: #1a1d2e;
+        border: none; border-radius: 8px;
+        cursor: pointer;
+        align-items: center; justify-content: center;
+        color: #fff;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+    }
+    .sidebar-toggle i { font-size: 20px; }
+
+    /* Overlay gelap saat sidebar terbuka di mobile */
+    .sidebar-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        z-index: 99;
+    }
+    .sidebar-overlay.active { display: block; }
+
+    @media (max-width: 768px) {
+        .sidebar {
+            transform: translateX(-100%);
+        }
+        .sidebar.open {
+            transform: translateX(0);
+        }
+        .main {
+            margin-left: 0;
+        }
+        .sidebar-toggle {
+            display: flex;
+        }
     }
 </style>
 
-<div class="sidebar">
+<!-- Tombol hamburger -->
+<button class="sidebar-toggle" id="sidebarToggle" aria-label="Buka menu">
+    <i class="ti ti-menu-2"></i>
+</button>
+
+<!-- Overlay -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<div class="sidebar" id="sidebar">
     <a href="dashboard.php" class="sidebar-logo">
         <div class="logo-icon"><i class="ti ti-briefcase"></i></div>
         <span class="logo-text">ItemLend</span>
@@ -143,3 +188,36 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </a>
     </div>
 </div>
+
+<script>
+(function () {
+    const toggle   = document.getElementById('sidebarToggle');
+    const sidebar  = document.getElementById('sidebar');
+    const overlay  = document.getElementById('sidebarOverlay');
+
+    function openSidebar() {
+        sidebar.classList.add('open');
+        overlay.classList.add('active');
+        toggle.querySelector('i').className = 'ti ti-x';
+    }
+
+    function closeSidebar() {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('active');
+        toggle.querySelector('i').className = 'ti ti-menu-2';
+    }
+
+    toggle.addEventListener('click', function () {
+        sidebar.classList.contains('open') ? closeSidebar() : openSidebar();
+    });
+
+    overlay.addEventListener('click', closeSidebar);
+
+    // Tutup sidebar saat nav diklik (UX mobile)
+    sidebar.querySelectorAll('.nav-item').forEach(function (link) {
+        link.addEventListener('click', function () {
+            if (window.innerWidth <= 768) closeSidebar();
+        });
+    });
+})();
+</script>

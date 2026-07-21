@@ -10,8 +10,8 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
 // Handle update status laporan & Eksekusi Aksi Kelanjutan
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id       = (int) ($_POST['id'] ?? 0);
-    $action   = $_POST['action'] ?? ''; // bisa 'reviewed' (diterima) atau 'dismissed' (ditolak/dibatalkan)
-    $sanksi   = $_POST['sanksi_option'] ?? ''; 
+    $action   = $_POST['action'] ?? '';
+    $sanksi   = $_POST['sanksi_option'] ?? '';
     $admin_id = (int) ($_SESSION['user'] ?? 0);
 
     $allowed_status = ['reviewed', 'dismissed'];
@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':id'       => $id
         ]);
 
-        // 2. JIKA LAPORAN DITERIMA ('reviewed'), CEK SANKSI APA YANG DIPILIH
+        // 2. JIKA LAPORAN DITERIMA, CEK SANKSI
         if ($action === 'reviewed') {
             $stmtReport = $conn->prepare("SELECT type, target_id FROM reports WHERE id = ?");
             $stmtReport->execute([$id]);
@@ -38,27 +38,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($reportData) {
                 $target_id = (int)$reportData['target_id'];
 
-                // Opsi A: Suspend Barang & Cooldown Pemilik (Hanya untuk tipe barang)
+                // Opsi A: Hapus Barang & Cooldown Pemilik
                 if ($reportData['type'] === 'barang' && $sanksi === 'suspend_barang') {
-                    // Batalkan/Reject barang
-                    $stmtItem = $conn->prepare("UPDATE items SET status = 'rejected' WHERE id = ?");
+                    $stmtItem = $conn->prepare("UPDATE items SET status = 'deleted' WHERE id = ?");
                     $stmtItem->execute([$target_id]);
 
-                    // Dapatkan ID pemilik barang
                     $stmtOwner = $conn->prepare("SELECT user_id FROM items WHERE id = ?");
                     $stmtOwner->execute([$target_id]);
                     $owner_id = $stmtOwner->fetchColumn();
 
                     if ($owner_id) {
-                        // Cooldown pemilik dengan mengubah status ke pending
                         $stmtUser = $conn->prepare("UPDATE users SET status = 'pending' WHERE id = ?");
                         $stmtUser->execute([$owner_id]);
                     }
-                } 
-                
-                // Opsi B: Refund Dana Peminjaman (Hanya untuk tipe peminjaman)
+                }
+
+                // Opsi B: Refund Dana Peminjaman
                 if ($reportData['type'] === 'peminjaman' && $sanksi === 'refund_dana') {
-                    // Kembalikan status pembayaran ke pending & pinjam selesai (tanda batalkan transaksi)
                     $stmtRental = $conn->prepare("UPDATE rentals SET status_pembayaran = 'pending', status_pinjam = 'selesai' WHERE id = ?");
                     $stmtRental->execute([$target_id]);
                 }
@@ -70,37 +66,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// Ambil semua laporan + info pelapor beserta nomor WhatsApp dari tabel users
+// Ambil semua laporan + info pelapor
 $reports = $conn->query("
-    SELECT r.*, u.username AS reporter_name, u.nomor_wa AS reporter_phone
+    SELECT r.*, u.username AS reporter_name, u.nomor_wa AS reporter_phone, u.id AS reporter_user_id
     FROM reports r
     JOIN users u ON r.reporter_id = u.id
     ORDER BY
-        CASE WHEN r.status = 'pending' THEN 1 
-             WHEN r.status = 'reviewed' THEN 2 
+        CASE WHEN r.status = 'pending' THEN 1
+             WHEN r.status = 'reviewed' THEN 2
              ELSE 3 END,
         r.created_at DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-// Lengkapi info target label
+// Lengkapi info target label + link + owner
 foreach ($reports as &$rep) {
+    $rep['owner_name']  = null;
+    $rep['owner_phone'] = null;
+    $rep['owner_id']    = null;
+
     if ($rep['type'] === 'barang') {
-        $stmt = $conn->prepare("SELECT nama_barang FROM items WHERE id = ?");
+        $stmt = $conn->prepare("
+            SELECT i.id, i.nama_barang, i.user_id,
+                   u.username AS owner_name, u.nomor_wa AS owner_phone
+            FROM items i
+            LEFT JOIN users u ON i.user_id = u.id
+            WHERE i.id = ?
+        ");
         $stmt->execute([$rep['target_id']]);
-        $nama = $stmt->fetchColumn();
-        $rep['target_label'] = $nama ?: 'Barang tidak ditemukan (#' . $rep['target_id'] . ')';
+        $item = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $rep['target_label'] = $item ? $item['nama_barang'] : 'Barang tidak ditemukan (#' . $rep['target_id'] . ')';
+        $rep['target_link']  = $item ? '../index.php?page=detail&id=' . $item['id'] : null;
+        $rep['owner_name']   = $item['owner_name'] ?? null;
+        $rep['owner_phone']  = $item['owner_phone'] ?? null;
+        $rep['owner_id']     = $item['user_id'] ?? null;
+
     } elseif ($rep['type'] === 'peminjaman') {
         $stmt = $conn->prepare("
-            SELECT i.nama_barang
+            SELECT rt.id, rt.user_id AS renter_id,
+                   i.nama_barang, i.user_id AS owner_id,
+                   u.username AS owner_name, u.nomor_wa AS owner_phone
             FROM rentals rt
             JOIN items i ON rt.item_id = i.id
+            LEFT JOIN users u ON i.user_id = u.id
             WHERE rt.id = ?
         ");
         $stmt->execute([$rep['target_id']]);
-        $nama = $stmt->fetchColumn();
-        $rep['target_label'] = 'Transaksi #' . $rep['target_id'] . ($nama ? ' - ' . $nama : ' (data dihapus)');
+        $rental = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $rep['target_label'] = 'Transaksi #' . $rep['target_id'] . ($rental ? ' - ' . $rental['nama_barang'] : ' (data dihapus)');
+        $rep['target_link']  = null;
+        $rep['owner_name']   = $rental['owner_name'] ?? null;
+        $rep['owner_phone']  = $rental['owner_phone'] ?? null;
+        $rep['owner_id']     = $rental['owner_id'] ?? null;
+
     } else {
-        $rep['target_label'] = 'User ID #' . $rep['target_id'];
+        // type = user
+        $stmt = $conn->prepare("SELECT id, username FROM users WHERE id = ?");
+        $stmt->execute([$rep['target_id']]);
+        $targetUser = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        $rep['target_label'] = $targetUser ? $targetUser['username'] : 'User #' . $rep['target_id'];
+        $rep['target_link']  = $targetUser ? 'user_detail.php?id=' . $targetUser['id'] : null;
     }
 }
 unset($rep);
@@ -109,6 +136,15 @@ $total_reports = count($reports);
 $total_pending = count(array_filter($reports, fn($r) => $r['status'] === 'pending'));
 $total_selesai = count(array_filter($reports, fn($r) => $r['status'] === 'reviewed'));
 $total_ditolak = count(array_filter($reports, fn($r) => $r['status'] === 'dismissed'));
+
+function waLink(string $phone, string $nama, string $konteks): string {
+    $clean = preg_replace('/[^0-9]/', '', $phone);
+    if (str_starts_with($clean, '0')) {
+        $clean = '62' . substr($clean, 1);
+    }
+    $pesan = urlencode("Halo $nama, saya Admin ItemLend ingin menindaklanjuti laporan terkait $konteks.");
+    return "https://wa.me/{$clean}?text={$pesan}";
+}
 
 function reportStatusBadge($status) {
     if ($status === 'reviewed') {
@@ -251,6 +287,7 @@ function reporterInitial($name) {
 
         tbody td { padding: 14px 16px; font-size: 13.5px; vertical-align: top; }
 
+        /* Pelapor cell */
         .reporter-cell { display: flex; align-items: center; gap: 10px; }
 
         .reporter-av {
@@ -260,8 +297,34 @@ function reporterInitial($name) {
             font-size: 11px; font-weight: 700; flex-shrink: 0;
         }
 
-        .reporter-name { font-size: 13.5px; font-weight: 600; }
+        .reporter-name {
+            font-size: 13.5px; font-weight: 600;
+            color: #3d4bff; text-decoration: none;
+        }
+
+        .reporter-name:hover { text-decoration: underline; }
+
         .reporter-date { font-size: 11.5px; color: #6b7280; margin-top: 2px; }
+
+        /* Target */
+        .target-link {
+            font-weight: 600;
+            color: #3d4bff;
+            text-decoration: none;
+            font-size: 13.5px;
+            max-width: 180px;
+            display: inline-block;
+        }
+
+        .target-link:hover { text-decoration: underline; }
+
+        .target-plain {
+            font-weight: 600;
+            font-size: 13.5px;
+            max-width: 180px;
+            display: inline-block;
+            color: #374151;
+        }
 
         .role-pill {
             display: inline-flex; align-items: center; gap: 4px;
@@ -270,12 +333,13 @@ function reporterInitial($name) {
             font-size: 11.5px; font-weight: 600;
         }
 
-        .target-label { font-weight: 600; max-width: 180px; }
         .reason-text { max-width: 200px; }
+
         .detail-text {
             max-width: 220px; color: #6b7280; font-size: 12.5px;
             white-space: normal; word-break: break-word;
         }
+
         .detail-empty { color: #c0c4ce; font-size: 12px; }
 
         .badge {
@@ -283,36 +347,49 @@ function reporterInitial($name) {
             font-size: 11px; font-weight: 700;
             padding: 5px 10px; border-radius: 20px; white-space: nowrap;
         }
+
         .badge-approved { background: #e9f9f0; color: #1a7a46; border: 1px solid #a7f3d0; }
         .badge-pending  { background: #fff7e6; color: #cc7a00; border: 1px solid #fed7aa; }
-        .badge-review   { background: #eff6ff; color: #2563eb; border: 1px solid #93c5fd; }
         .badge-rejected { background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; }
 
         .actions { display: flex; flex-direction: column; gap: 6px; }
         .btn-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 
+        /* Dua tombol WA berdampingan */
+        .wa-row {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
         .btn {
             border: none; cursor: pointer; border-radius: 8px;
             padding: 7px 12px; font-size: 12px; font-weight: 700;
-            display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
-            text-decoration: none;
+            display: inline-flex; align-items: center; gap: 5px;
+            white-space: nowrap; text-decoration: none;
         }
-        .btn-review  { background: #eff6ff; color: #2563eb; border: 1px solid #93c5fd; }
-        .btn-review:hover { background: #dbeafe; }
+
         .btn-approve { background: #3d4bff; color: #fff; }
         .btn-approve:hover { background: #2c38d4; }
-        .btn-reject  { background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; }
-        .btn-reject:hover { background: #fee2e2; }
-        .btn-wa { background: #25d366; color: #fff; margin-bottom: 4px; }
-        .btn-wa:hover { background: #20ba5a; }
-        .btn-disabled { background: #f3f4f6; color: #9ca3af; cursor: default; }
 
-        /* Style Baru Dropdown Pilihan Kelanjutan */
+        /* Hijau tua untuk pelapor, hijau muda untuk pemilik */
+        .btn-wa-pelapor {
+            background: #25d366; color: #fff;
+        }
+        .btn-wa-pelapor:hover { background: #20ba5a; }
+
+        .btn-wa-pemilik {
+            background: #e9f9f0; color: #1a7a46;
+            border: 1px solid #a7f3d0;
+        }
+        .btn-wa-pemilik:hover { background: #d1fae5; }
+
+        .btn-disabled { background: #f3f4f6; color: #9ca3af; cursor: default; border: none; }
+
         .select-sanksi {
             padding: 7px 10px;
             font-family: 'Plus Jakarta Sans', sans-serif;
-            font-size: 12px;
-            font-weight: 600;
+            font-size: 12px; font-weight: 600;
             border: 1px solid #d1d5db;
             border-radius: 8px;
             background-color: #fff;
@@ -321,9 +398,8 @@ function reporterInitial($name) {
             min-width: 210px;
             cursor: pointer;
         }
-        .select-sanksi:focus {
-            border-color: #3d4bff;
-        }
+
+        .select-sanksi:focus { border-color: #3d4bff; }
 
         .empty-state { text-align: center; padding: 48px 20px; color: #9ca3af; font-size: 13px; }
 
@@ -403,26 +479,42 @@ function reporterInitial($name) {
                         <tbody>
                             <?php foreach ($reports as $rep): ?>
                                 <tr>
+                                    <!-- PELAPOR -->
                                     <td>
                                         <div class="reporter-cell">
                                             <div class="reporter-av"><?= reporterInitial($rep['reporter_name']) ?></div>
                                             <div>
-                                                <div class="reporter-name"><?= htmlspecialchars($rep['reporter_name']) ?></div>
+                                                <a href="user_detail.php?id=<?= $rep['reporter_user_id'] ?>" class="reporter-name">
+                                                    <?= htmlspecialchars($rep['reporter_name']) ?>
+                                                </a>
                                                 <div class="reporter-date"><?= date('d M Y, H:i', strtotime($rep['created_at'])) ?></div>
                                             </div>
                                         </div>
                                     </td>
 
+                                    <!-- TIPE -->
                                     <td><?= typeBadge($rep['type']) ?></td>
 
+                                    <!-- TARGET -->
                                     <td>
-                                        <div class="target-label"><?= htmlspecialchars($rep['target_label']) ?></div>
+                                        <?php if (!empty($rep['target_link'])): ?>
+                                            <a href="<?= htmlspecialchars($rep['target_link']) ?>"
+                                               class="target-link"
+                                               <?= $rep['type'] === 'barang' ? 'target="_blank"' : '' ?>>
+                                                <?= htmlspecialchars($rep['target_label']) ?>
+                                                <i class="ti ti-external-link" style="font-size:11px;vertical-align:middle;"></i>
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="target-plain"><?= htmlspecialchars($rep['target_label']) ?></span>
+                                        <?php endif; ?>
                                     </td>
 
+                                    <!-- ALASAN -->
                                     <td class="hide-md">
                                         <div class="reason-text"><?= htmlspecialchars($rep['reason']) ?></div>
                                     </td>
 
+                                    <!-- DETAIL -->
                                     <td class="hide-md">
                                         <?php if (!empty($rep['detail'])): ?>
                                             <div class="detail-text"><?= htmlspecialchars($rep['detail']) ?></div>
@@ -431,60 +523,59 @@ function reporterInitial($name) {
                                         <?php endif; ?>
                                     </td>
 
+                                    <!-- STATUS -->
                                     <td><?= reportStatusBadge($rep['status']) ?></td>
 
+                                    <!-- AKSI -->
                                     <td>
                                         <div class="actions">
-                                            <!-- LINK TOMBOL HUBUNGI VIA WHATSAPP (AKTIF SAAT PENDING) -->
                                             <?php if ($rep['status'] === 'pending'): ?>
-                                                <?php 
-                                                    $clean_phone = preg_replace('/[^0-9]/', '', $rep['reporter_phone'] ?? '');
-                                                    if (substr($clean_phone, 0, 2) === '08') {
-                                                        $clean_phone = '628' . substr($clean_phone, 2);
-                                                    }
-                                                    $pesan_wa = urlencode("Halo " . $rep['reporter_name'] . ", saya Admin ItemLend ingin menindaklanjuti laporan Anda terkait " . $rep['type'] . " (" . $rep['target_label'] . ") dengan alasan: " . $rep['reason']);
-                                                    $link_wa = "https://wa.me/" . $clean_phone . "?text=" . $pesan_wa;
-                                                ?>
-                                                <?php if(!empty($clean_phone)): ?>
-                                                    <div>
-                                                        <a href="<?= $link_wa ?>" target="_blank" class="btn btn-wa">
-                                                            <i class="ti ti-brand-whatsapp"></i> Hubungi Pelapor
-                                                        </a>
-                                                    </div>
-                                                <?php endif; ?>
-                                            <?php endif; ?>
 
-                                            <!-- OPSI EKSEKUSI FORM SATU PINTU (HANYA MUNCUL JIKA PENDING) -->
-                                            <?php if ($rep['status'] === 'pending'): ?>
-                                                <form method="POST" onsubmit="return confirm('Apakah Anda yakin ingin mengeksekusi tindakan kelanjutan laporan ini?')">
+                                                <!-- Tombol WA: Pelapor + Pemilik berdampingan -->
+                                                <div class="wa-row">
+                                                    <?php if (!empty($rep['reporter_phone'])): ?>
+                                                        <a href="<?= waLink($rep['reporter_phone'], $rep['reporter_name'], $rep['target_label']) ?>"
+                                                           target="_blank" class="btn btn-wa-pelapor">
+                                                            <i class="ti ti-brand-whatsapp"></i> Pelapor
+                                                        </a>
+                                                    <?php endif; ?>
+
+                                                    <?php if (!empty($rep['owner_phone'])): ?>
+                                                        <a href="<?= waLink($rep['owner_phone'], $rep['owner_name'], $rep['target_label']) ?>"
+                                                           target="_blank" class="btn btn-wa-pemilik">
+                                                            <i class="ti ti-brand-whatsapp"></i> Pemilik
+                                                        </a>
+                                                    <?php endif; ?>
+                                                </div>
+
+                                                <!-- Form Eksekusi -->
+                                                <form method="POST" onsubmit="return confirmAksi(this)">
                                                     <input type="hidden" name="id" value="<?= $rep['id'] ?>">
-                                                    
+                                                    <input type="hidden" name="action" value="reviewed" id="action_<?= $rep['id'] ?>">
+
                                                     <div class="btn-row">
-                                                        <!-- Dropdown Pilihan Kelanjutan Keluhan -->
-                                                        <select name="sanksi_option" class="select-sanksi" required onchange="this.form.action.value = (this.value === 'dismissed' ? 'dismissed' : 'reviewed')">
+                                                        <select name="sanksi_option" class="select-sanksi" id="sanksi_<?= $rep['id'] ?>"
+                                                                onchange="updateAction(<?= $rep['id'] ?>, this.value)">
                                                             <option value="none">Selesaikan tanpa Sanksi</option>
-                                                            
+
                                                             <?php if ($rep['type'] === 'barang'): ?>
-                                                                <option value="suspend_barang">Selesai + Suspend Barang & Cooldown</option>
+                                                                <option value="suspend_barang">Selesai + Hapus Barang & Cooldown Pemilik</option>
                                                             <?php endif; ?>
-                                                            
+
                                                             <?php if ($rep['type'] === 'peminjaman'): ?>
                                                                 <option value="refund_dana">Selesai + Lakukan Refund Dana</option>
                                                             <?php endif; ?>
-                                                            
+
                                                             <option value="dismissed">Batalkan / Tolak Laporan ini</option>
                                                         </select>
 
-                                                        <!-- Input Hidden untuk Aksi Utama Status di Database -->
-                                                        <input type="hidden" name="action" value="reviewed">
-                                                        
                                                         <button type="submit" class="btn btn-approve">
                                                             <i class="ti ti-send"></i> Proses
                                                         </button>
                                                     </div>
                                                 </form>
+
                                             <?php else: ?>
-                                                <!-- Jika status sudah diproses (reviewed/dismissed) -->
                                                 <span class="btn btn-disabled">
                                                     <i class="ti ti-lock"></i> Terproses
                                                 </span>
@@ -502,5 +593,31 @@ function reporterInitial($name) {
         </div>
     </div>
 </div>
+
+<script>
+function updateAction(id, value) {
+    const actionInput = document.getElementById('action_' + id);
+    actionInput.value = (value === 'dismissed') ? 'dismissed' : 'reviewed';
+}
+
+function confirmAksi(form) {
+    const select = form.querySelector('select[name="sanksi_option"]');
+    const val    = select.value;
+
+    let msg = '';
+    if (val === 'dismissed') {
+        msg = 'Batalkan/tolak laporan ini?';
+    } else if (val === 'suspend_barang') {
+        msg = 'Selesaikan laporan + hapus barang dan cooldown pemilik?';
+    } else if (val === 'refund_dana') {
+        msg = 'Selesaikan laporan + lakukan refund dana peminjaman?';
+    } else {
+        msg = 'Selesaikan laporan ini tanpa sanksi?';
+    }
+
+    return confirm(msg);
+}
+</script>
+
 </body>
 </html>

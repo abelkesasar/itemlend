@@ -7,6 +7,43 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     exit;
 }
 
+// ── Handle DELETE ──────────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_item_id'])) {
+    $item_id = (int) $_POST['delete_item_id'];
+
+    if ($item_id > 0) {
+        // Cek transaksi aktif di tabel rentals
+        $cek = $conn->prepare("SELECT id FROM rentals WHERE item_id = ? AND status_pinjam = 'sedang_dipinjam' LIMIT 1");
+        $cek->execute([$item_id]);
+
+        if ($cek->fetch()) {
+            $delete_error = 'Barang sedang dalam transaksi aktif dan tidak dapat dihapus.';
+        } else {
+            // Ambil data gambar sebelum dihapus
+            $row = $conn->prepare("SELECT gambar FROM items WHERE id = ?");
+            $row->execute([$item_id]);
+            $data = $row->fetch(PDO::FETCH_ASSOC);
+
+            // Hapus record
+            $del = $conn->prepare("DELETE FROM items WHERE id = ?");
+            $del->execute([$item_id]);
+
+            // Hapus file gambar
+            if ($data && !empty($data['gambar'])) {
+                $gambar_list = json_decode($data['gambar'], true);
+                $files = is_array($gambar_list) ? $gambar_list : [$data['gambar']];
+                foreach ($files as $file) {
+                    $path = "../uploads/" . basename($file);
+                    if (file_exists($path)) unlink($path);
+                }
+            }
+
+            $delete_success = 'Barang berhasil dihapus.';
+        }
+    }
+}
+// ──────────────────────────────────────────────────────────────────────────
+
 // Filter & search
 $search   = trim($_GET['search'] ?? '');
 $sort     = $_GET['sort'] ?? 'terbaru';
@@ -40,7 +77,7 @@ $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $total_items   = $conn->query("SELECT COUNT(*) FROM items")->fetchColumn();
 $pending_users = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
 $pending_users = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
-$pending_items = $conn->query("SELECT COUNT(*) FROM items WHERE status='pending'")->fetchColumn(); // ← tambah sini
+$pending_items = $conn->query("SELECT COUNT(*) FROM items WHERE status='pending'")->fetchColumn();
 
 // Icon map berdasarkan kata kunci nama barang
 function getItemIcon(string $name): string {
@@ -102,6 +139,20 @@ $avatar_colors = [
 
         /* ── Content ── */
         .content { padding: 24px 28px; }
+
+        /* ── Toast notif ── */
+        .toast {
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .toast.success { background: #e9f9f0; color: #1a7a46; border: 1px solid #bbf7d0; }
+        .toast.error   { background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; }
 
         /* ── Toolbar ── */
         .toolbar {
@@ -217,6 +268,7 @@ $avatar_colors = [
             cursor: pointer; text-decoration: none;
             border: 1px solid #fecaca; background: #fff5f5; color: #dc2626;
             transition: background 0.15s;
+            font-family: inherit;
         }
         .btn-del:hover { background: #fee2e2; }
         .btn-detail {
@@ -266,6 +318,12 @@ $avatar_colors = [
 
         <!-- Content -->
         <div class="content">
+
+            <?php if (!empty($delete_success)): ?>
+                <div class="toast success"><i class="ti ti-circle-check"></i> <?= htmlspecialchars($delete_success) ?></div>
+            <?php elseif (!empty($delete_error)): ?>
+                <div class="toast error"><i class="ti ti-alert-circle"></i> <?= htmlspecialchars($delete_error) ?></div>
+            <?php endif; ?>
 
             <!-- Toolbar -->
             <form method="GET" action="">
@@ -381,11 +439,12 @@ if (!empty($item['gambar'])) {
                         </div>
 
                         <div class="item-footer">
-                            <a href="../actions/delete_item.php?id=<?= $item['id'] ?>"
-                               class="btn-del"
-                               onclick="return confirm('Hapus barang ini?')">
-                                <i class="ti ti-trash" style="font-size:15px"></i> Hapus
-                            </a>
+                            <form method="POST" action="" onsubmit="return confirm('Hapus barang ini?')">
+                                <input type="hidden" name="delete_item_id" value="<?= $item['id'] ?>">
+                                <button type="submit" class="btn-del">
+                                    <i class="ti ti-trash" style="font-size:15px"></i> Hapus
+                                </button>
+                            </form>
                             <a href="../index.php?page=detail&id=<?= $item['id'] ?>" class="btn-detail">
                                 <i class="ti ti-eye" style="font-size:15px"></i> Detail
                             </a>
