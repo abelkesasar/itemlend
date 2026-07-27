@@ -13,14 +13,17 @@ $target_id   = (int) ($_POST['target_id'] ?? 0);
 $reason      = trim($_POST['reason'] ?? '');
 $detail      = trim($_POST['detail'] ?? '');
 
-$allowed_types = ['barang', 'transaksi'];
+// 'transaksi' di form kita mapping ke 'peminjaman' sesuai ENUM di DB
+if ($type === 'transaksi') $type = 'peminjaman';
+
+$allowed_types = ['barang', 'peminjaman', 'user'];
 
 if (!in_array($type, $allowed_types) || !$target_id || !$reason) {
     echo "<script>alert('Data laporan tidak lengkap!'); history.back();</script>";
     exit;
 }
 
-// Validasi target sesuai tipe laporan
+// Validasi target sesuai tipe
 if ($type === 'barang') {
     $stmt = $conn->prepare("SELECT id FROM items WHERE id = ?");
     $stmt->execute([$target_id]);
@@ -28,8 +31,7 @@ if ($type === 'barang') {
         echo "<script>alert('Barang tidak ditemukan!'); history.back();</script>";
         exit;
     }
-} elseif ($type === 'transaksi') {
-    // Pastikan rental ini memang milik user yang login (biar gak laporin transaksi orang lain)
+} elseif ($type === 'peminjaman') {
     $stmt = $conn->prepare("SELECT id FROM rentals WHERE id = ? AND user_id = ?");
     $stmt->execute([$target_id, $reporter_id]);
     if (!$stmt->fetch()) {
@@ -38,10 +40,10 @@ if ($type === 'barang') {
     }
 }
 
-// Cegah laporan duplikat selagi masih diproses (pending/ditinjau)
+// Cegah laporan duplikat — status sesuai ENUM: pending/reviewed/dismissed
 $cek = $conn->prepare("
     SELECT id FROM reports
-    WHERE reporter_id = ? AND type = ? AND target_id = ? AND status IN ('pending', 'ditinjau')
+    WHERE reporter_id = ? AND type = ? AND target_id = ? AND status = 'pending'
 ");
 $cek->execute([$reporter_id, $type, $target_id]);
 if ($cek->fetch()) {

@@ -7,6 +7,23 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     exit;
 }
 
+// Helper: auto-detect tipe laporan dari target_id jika type di DB kosong/invalid
+function detectType(PDO $conn, int $target_id): string {
+    $s = $conn->prepare("SELECT id FROM rentals WHERE id = ? LIMIT 1");
+    $s->execute([$target_id]);
+    if ($s->fetch()) return 'peminjaman';
+
+    $s = $conn->prepare("SELECT id FROM items WHERE id = ? LIMIT 1");
+    $s->execute([$target_id]);
+    if ($s->fetch()) return 'barang';
+
+    $s = $conn->prepare("SELECT id FROM users WHERE id = ? LIMIT 1");
+    $s->execute([$target_id]);
+    if ($s->fetch()) return 'user';
+
+    return 'unknown';
+}
+
 // Handle update status laporan & Eksekusi Aksi Kelanjutan
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id       = (int) ($_POST['id'] ?? 0);
@@ -36,11 +53,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $reportData = $stmtReport->fetch(PDO::FETCH_ASSOC);
 
             if ($reportData) {
-                $target_id = (int)$reportData['target_id'];
+                $target_id   = (int)$reportData['target_id'];
+                $validTypes  = ['barang', 'peminjaman', 'user'];
+                $reportType  = in_array($reportData['type'], $validTypes)
+                               ? $reportData['type']
+                               : detectType($conn, $target_id);
 
                 // Opsi A: Hapus Barang & Cooldown Pemilik
-                if ($reportData['type'] === 'barang' && $sanksi === 'suspend_barang') {
-                    $stmtItem = $conn->prepare("UPDATE items SET status = 'deleted' WHERE id = ?");
+                if ($reportType === 'barang' && $sanksi === 'suspend_barang') {
+                    $stmtItem = $conn->prepare("UPDATE items SET status = 'rejected' WHERE id = ?");
                     $stmtItem->execute([$target_id]);
 
                     $stmtOwner = $conn->prepare("SELECT user_id FROM items WHERE id = ?");
@@ -54,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 // Opsi B: Refund Dana Peminjaman
-                if ($reportData['type'] === 'peminjaman' && $sanksi === 'refund_dana') {
+                if ($reportType === 'peminjaman' && $sanksi === 'refund_dana') {
                     $stmtRental = $conn->prepare("UPDATE rentals SET status_pembayaran = 'pending', status_pinjam = 'selesai' WHERE id = ?");
                     $stmtRental->execute([$target_id]);
                 }
@@ -80,9 +101,18 @@ $reports = $conn->query("
 
 // Lengkapi info target label + link + owner
 foreach ($reports as &$rep) {
-    $rep['owner_name']  = null;
-    $rep['owner_phone'] = null;
-    $rep['owner_id']    = null;
+    $rep['owner_name']   = null;
+    $rep['owner_phone']  = null;
+    $rep['owner_id']     = null;
+    $rep['renter_name']  = null;
+    $rep['renter_phone'] = null;
+    $rep['renter_id']    = null;
+
+    // Jika type kosong atau tidak valid, auto-detect dari target_id
+    $validTypes = ['barang', 'peminjaman', 'user'];
+    if (!in_array($rep['type'], $validTypes)) {
+        $rep['type'] = detectType($conn, (int)$rep['target_id']);
+    }
 
     if ($rep['type'] === 'barang') {
         $stmt = $conn->prepare("
@@ -97,18 +127,25 @@ foreach ($reports as &$rep) {
 
         $rep['target_label'] = $item ? $item['nama_barang'] : 'Barang tidak ditemukan (#' . $rep['target_id'] . ')';
         $rep['target_link']  = $item ? '../index.php?page=detail&id=' . $item['id'] : null;
-        $rep['owner_name']   = $item['owner_name'] ?? null;
+        $rep['owner_name']   = $item['owner_name']  ?? null;
         $rep['owner_phone']  = $item['owner_phone'] ?? null;
-        $rep['owner_id']     = $item['user_id'] ?? null;
+        $rep['owner_id']     = $item['user_id']     ?? null;
 
     } elseif ($rep['type'] === 'peminjaman') {
+        // JOIN dua kali: pemilik barang (owner) DAN penyewa (renter)
         $stmt = $conn->prepare("
-            SELECT rt.id, rt.user_id AS renter_id,
-                   i.nama_barang, i.user_id AS owner_id,
-                   u.username AS owner_name, u.nomor_wa AS owner_phone
+            SELECT rt.id,
+                   rt.user_id AS renter_id,
+                   i.nama_barang,
+                   i.user_id AS owner_id,
+                   owner_u.username  AS owner_name,
+                   owner_u.nomor_wa  AS owner_phone,
+                   renter_u.username AS renter_name,
+                   renter_u.nomor_wa AS renter_phone
             FROM rentals rt
             JOIN items i ON rt.item_id = i.id
-            LEFT JOIN users u ON i.user_id = u.id
+            LEFT JOIN users owner_u  ON i.user_id   = owner_u.id
+            LEFT JOIN users renter_u ON rt.user_id  = renter_u.id
             WHERE rt.id = ?
         ");
         $stmt->execute([$rep['target_id']]);
@@ -116,18 +153,29 @@ foreach ($reports as &$rep) {
 
         $rep['target_label'] = 'Transaksi #' . $rep['target_id'] . ($rental ? ' - ' . $rental['nama_barang'] : ' (data dihapus)');
         $rep['target_link']  = null;
-        $rep['owner_name']   = $rental['owner_name'] ?? null;
-        $rep['owner_phone']  = $rental['owner_phone'] ?? null;
-        $rep['owner_id']     = $rental['owner_id'] ?? null;
+        $rep['owner_name']   = $rental['owner_name']   ?? null;
+        $rep['owner_phone']  = $rental['owner_phone']  ?? null;
+        $rep['owner_id']     = $rental['owner_id']     ?? null;
+        $rep['renter_name']  = $rental['renter_name']  ?? null;
+        $rep['renter_phone'] = $rental['renter_phone'] ?? null;
+        $rep['renter_id']    = $rental['renter_id']    ?? null;
 
-    } else {
-        // type = user
-        $stmt = $conn->prepare("SELECT id, username FROM users WHERE id = ?");
+    } elseif ($rep['type'] === 'user') {
+        $stmt = $conn->prepare("SELECT id, username, nomor_wa FROM users WHERE id = ?");
         $stmt->execute([$rep['target_id']]);
         $targetUser = $stmt->fetch(PDO::FETCH_ASSOC);
 
         $rep['target_label'] = $targetUser ? $targetUser['username'] : 'User #' . $rep['target_id'];
         $rep['target_link']  = $targetUser ? 'user_detail.php?id=' . $targetUser['id'] : null;
+        // Untuk laporan tipe user: pemilik = user yang dilaporkan
+        $rep['owner_name']   = $targetUser['username'] ?? null;
+        $rep['owner_phone']  = $targetUser['nomor_wa'] ?? null;
+        $rep['owner_id']     = $targetUser['id']       ?? null;
+
+    } else {
+        // type tidak valid / kosong
+        $rep['target_label'] = 'Laporan #' . $rep['id'] . ' (tipe tidak valid)';
+        $rep['target_link']  = null;
     }
 }
 unset($rep);
@@ -160,8 +208,10 @@ function typeBadge($type) {
         return '<span class="role-pill"><i class="ti ti-box-seam"></i> Barang</span>';
     } elseif ($type === 'peminjaman') {
         return '<span class="role-pill"><i class="ti ti-receipt"></i> Peminjaman</span>';
+    } elseif ($type === 'user') {
+        return '<span class="role-pill"><i class="ti ti-user"></i> User</span>';
     }
-    return '<span class="role-pill"><i class="ti ti-user"></i> User</span>';
+    return '<span class="role-pill role-pill--invalid"><i class="ti ti-alert-triangle"></i> Tidak Valid</span>';
 }
 
 function reporterInitial($name) {
@@ -333,6 +383,10 @@ function reporterInitial($name) {
             font-size: 11.5px; font-weight: 600;
         }
 
+        .role-pill--invalid {
+            background: #fff3cd; color: #856404;
+        }
+
         .reason-text { max-width: 200px; }
 
         .detail-text {
@@ -355,11 +409,11 @@ function reporterInitial($name) {
         .actions { display: flex; flex-direction: column; gap: 6px; }
         .btn-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 
-        /* Dua tombol WA berdampingan */
         .wa-row {
             display: flex;
             gap: 6px;
             flex-wrap: wrap;
+            margin-bottom: 2px;
         }
 
         .btn {
@@ -372,17 +426,25 @@ function reporterInitial($name) {
         .btn-approve { background: #3d4bff; color: #fff; }
         .btn-approve:hover { background: #2c38d4; }
 
-        /* Hijau tua untuk pelapor, hijau muda untuk pemilik */
+        /* Hijau tua = pelapor */
         .btn-wa-pelapor {
             background: #25d366; color: #fff;
         }
         .btn-wa-pelapor:hover { background: #20ba5a; }
 
+        /* Hijau muda = pemilik barang / terlapor */
         .btn-wa-pemilik {
             background: #e9f9f0; color: #1a7a46;
             border: 1px solid #a7f3d0;
         }
         .btn-wa-pemilik:hover { background: #d1fae5; }
+
+        /* Kuning = penyewa (khusus tipe peminjaman) */
+        .btn-wa-penyewa {
+            background: #fff8e1; color: #856404;
+            border: 1px solid #ffc107;
+        }
+        .btn-wa-penyewa:hover { background: #fff3cd; }
 
         .btn-disabled { background: #f3f4f6; color: #9ca3af; cursor: default; border: none; }
 
@@ -400,6 +462,15 @@ function reporterInitial($name) {
         }
 
         .select-sanksi:focus { border-color: #3d4bff; }
+
+        .wa-label {
+            font-size: 11px;
+            color: #9ca3af;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 4px;
+        }
 
         .empty-state { text-align: center; padding: 48px 20px; color: #9ca3af; font-size: 13px; }
 
@@ -531,19 +602,27 @@ function reporterInitial($name) {
                                         <div class="actions">
                                             <?php if ($rep['status'] === 'pending'): ?>
 
-                                                <!-- Tombol WA: Pelapor + Pemilik berdampingan -->
+                                                <!-- Tombol WA -->
                                                 <div class="wa-row">
                                                     <?php if (!empty($rep['reporter_phone'])): ?>
                                                         <a href="<?= waLink($rep['reporter_phone'], $rep['reporter_name'], $rep['target_label']) ?>"
-                                                           target="_blank" class="btn btn-wa-pelapor">
+                                                           target="_blank" class="btn btn-wa-pelapor"
+                                                           title="WA Pelapor: <?= htmlspecialchars($rep['reporter_name']) ?>">
                                                             <i class="ti ti-brand-whatsapp"></i> Pelapor
                                                         </a>
                                                     <?php endif; ?>
 
                                                     <?php if (!empty($rep['owner_phone'])): ?>
+                                                        <?php
+                                                            $ownerLabel = match($rep['type']) {
+                                                                'user'  => 'Terlapor',
+                                                                default => 'Pemilik',
+                                                            };
+                                                        ?>
                                                         <a href="<?= waLink($rep['owner_phone'], $rep['owner_name'], $rep['target_label']) ?>"
-                                                           target="_blank" class="btn btn-wa-pemilik">
-                                                            <i class="ti ti-brand-whatsapp"></i> Pemilik
+                                                           target="_blank" class="btn btn-wa-pemilik"
+                                                           title="WA <?= $ownerLabel ?>: <?= htmlspecialchars($rep['owner_name']) ?>">
+                                                            <i class="ti ti-brand-whatsapp"></i> <?= $ownerLabel ?>
                                                         </a>
                                                     <?php endif; ?>
                                                 </div>
