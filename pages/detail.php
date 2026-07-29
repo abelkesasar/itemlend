@@ -510,6 +510,12 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
                         <i class="ti ti-brand-whatsapp"></i> WA
                     </a>
                     <?php endif; ?>
+                    <?php if ($user_login && $item['user_id'] != $user_login): ?>
+                    <a href="index.php?page=chat&item_id=<?= $item['id'] ?>&seller_id=<?= $item['user_id'] ?>"
+                          class="btn-wa" style="background:#3d4bff;">
+                    <i class="ti ti-message-circle"></i> Chat
+                    </a>
+                    <?php endif; ?>
                 </div>
 
                 <!-- CTA -->

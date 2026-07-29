@@ -346,7 +346,11 @@ switch ($page) {
         require 'pages/chat.php';
         echo '</div>';
         break;
-
+    case 'chat_list':
+        echo '<div class="main-wrap">';
+       require 'pages/chat_list.php';
+        echo '</div>';
+        break;
     case 'pembayaran':
         echo '<div class="main-wrap">';
         require 'pages/pembayaran.php';

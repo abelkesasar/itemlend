@@ -261,7 +261,9 @@
                     $pending_saya = (int) $ps->fetchColumn();
                 } catch (Exception $e) {}
                 ?>
-
+                    <a href="index.php?page=chat_list" class="btn-nav btn-nav-ghost" style="padding:7px 10px;">
+                    <i class="ti ti-message-circle"></i>
+                    </a>
                 <div class="user-menu" id="userMenu">
                     <div class="user-trigger" onclick="toggleUserMenu()">
                         <div class="user-av"><?= $init ?></div>
