@@ -77,5 +77,5 @@ echo "
     alert('Barang berhasil didaftarkan! Menunggu approval admin.');
     window.location='../index.php?page=barangsaya';
 </script>
-";
+";a
 ?>
