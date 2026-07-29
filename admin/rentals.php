@@ -436,8 +436,18 @@ $av_colors = [
                     $spj  = $r['status_pinjam']     ?? 'belum_mulai';
                     $dur  = (int) ((strtotime($r['tanggal_selesai']) - strtotime($r['tanggal_mulai'])) / 86400);
                     $tot  = $r['total_harga'] ?: ($dur * $r['harga']);
-                    $g    = (!empty($r['gambar']) && file_exists("../uploads/".$r['gambar']))
-                            ? "../uploads/".$r['gambar'] : null;
+$g = null;
+if (!empty($r['gambar'])) {
+    $gambar_list = json_decode($r['gambar'], true);
+    if (is_array($gambar_list) && !empty($gambar_list[0])) {
+        $first = $gambar_list[0];
+    } else {
+        $first = $r['gambar']; // fallback format lama
+    }
+    if (file_exists("../uploads/" . $first)) {
+        $g = "../uploads/" . $first;
+    }
+}
                     $cp   = $av_colors[abs(crc32($r['penyewa']  ?? '')) % 5];
                     $co   = $av_colors[abs(crc32($r['pemilik']  ?? '')) % 5];
                     $ip   = strtoupper(substr($r['penyewa']  ?? '?', 0, 2));
