@@ -22,11 +22,34 @@ $providerLabels = [
     'ShopeePay' => 'ShopeePay',
     'DANA'      => 'DANA',
 ];
+
+// Ringkasan keuangan singkat (khusus barang milik user ini, transaksi yang sudah lunas)
+$stmtFin = $conn->prepare("
+    SELECT r.status_pencairan, r.total_harga, r.komisi_admin, r.jumlah_dicairkan
+    FROM rentals r
+    JOIN items i ON r.item_id = i.id
+    WHERE i.user_id = ? AND r.status_pembayaran = 'lunas'
+");
+$stmtFin->execute([$_SESSION['user']]);
+$finRows = $stmtFin->fetchAll(PDO::FETCH_ASSOC);
+
+$totalBelumDicairkan = 0;
+$totalSudahDicairkan = 0;
+foreach ($finRows as $fr) {
+    if ($fr['status_pencairan'] === 'sudah_dicairkan') {
+        $totalSudahDicairkan += (int)$fr['jumlah_dicairkan'];
+    } else {
+        $totalBelumDicairkan += ((int)$fr['total_harga'] - (int)$fr['komisi_admin']);
+    }
+}
 ?>
 
 <style>
-    .profile-wrap { max-width: 560px; margin: 0 auto; }
-    .profile-title { font-size: 24px; font-weight: 800; color: #1a1d2e; margin-bottom: 20px; }
+    .profile-wrap {
+        max-width: 900px; margin: 0 auto;
+        display: grid; grid-template-columns: 1fr 300px; gap: 24px; align-items: start;
+    }
+    .profile-title { font-size: 24px; font-weight: 800; color: #1a1d2e; margin-bottom: 20px; grid-column: 1/-1; }
     .profile-card {
         background: #fff; border: 1px solid #e5e7eb; border-radius: 16px;
         padding: 32px; box-shadow: 0 4px 20px rgba(0,0,0,0.04);
@@ -35,6 +58,7 @@ $providerLabels = [
         background: #e9f9f0; border: 1px solid #a7f3d0; color: #1a7a46;
         padding: 12px 16px; border-radius: 10px; font-size: 13.5px;
         font-weight: 500; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;
+        grid-column: 1/-1;
     }
     .profile-alert.warn {
         background: #fff7e6; border: 1px solid #fed7aa; color: #92400e;
@@ -77,6 +101,35 @@ $providerLabels = [
         margin: 24px 0 14px; display: flex; align-items: center; gap: 8px;
     }
     .profile-section-label::after { content: ''; flex: 1; height: 1px; background: #f0f1f3; }
+
+    /* Kartu ringkasan keuangan (kolom kanan) */
+    .finance-card {
+        background: #fff; border: 1px solid #e5e7eb; border-radius: 16px;
+        padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+        position: sticky; top: 20px;
+    }
+    .finance-title {
+        font-size: 14px; font-weight: 700; color: #1a1d2e;
+        margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+    }
+    .finance-title i { color: #3d4bff; font-size: 17px; }
+    .finance-row { margin-bottom: 14px; }
+    .finance-label { font-size: 11.5px; color: #9ca3af; margin-bottom: 3px; }
+    .finance-value { font-size: 18px; font-weight: 800; }
+    .finance-value.pending { color: #d97706; }
+    .finance-value.done { color: #16a34a; }
+    .finance-link {
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+        width: 100%; padding: 10px; margin-top: 8px;
+        background: #eef0ff; color: #3d4bff; border-radius: 10px;
+        font-size: 13px; font-weight: 600; text-decoration: none;
+        transition: background 0.15s;
+    }
+    .finance-link:hover { background: #dde1ff; }
+
+    @media (max-width: 760px) {
+        .profile-wrap { grid-template-columns: 1fr; }
+    }
 </style>
 
 <div class="profile-wrap">
@@ -134,7 +187,7 @@ $providerLabels = [
 
             <div class="profile-group">
                 <label>Jenis Metode</label>
-                <select name="nama_penyedia" required>
+                <select name="nama_penyedia" id="nama_penyedia" required onchange="toggleQrisUpload()">
                     <option value="">-- Pilih Metode Pembayaran --</option>
                     <?php foreach ($providerOptions as $opt): ?>
                         <option value="<?= $opt ?>" <?= ($me['nama_penyedia'] ?? '') === $opt ? 'selected' : '' ?>>
@@ -156,6 +209,15 @@ $providerLabels = [
                        placeholder="contoh: Danil Saputra" required>
             </div>
 
+            <div class="profile-group" id="qris_upload_group" style="display:none;">
+                <label>Foto QRIS</label>
+                <?php if (!empty($me['foto_qris']) && file_exists("uploads/" . $me['foto_qris'])): ?>
+                    <img src="uploads/<?= htmlspecialchars($me['foto_qris']) ?>" style="max-width:160px;border-radius:10px;margin-bottom:8px;display:block;">
+                <?php endif; ?>
+                <input type="file" name="foto_qris" accept="image/*">
+                <span class="profile-hint">Upload foto/gambar QRIS kamu (kosongkan jika tidak ingin ganti)</span>
+            </div>
+
             <div class="profile-group">
                 <label>Password Baru <span class="profile-hint">(kosongkan jika tidak ingin ganti)</span></label>
                 <input type="password" name="password" placeholder="••••••••">
@@ -166,4 +228,31 @@ $providerLabels = [
             </button>
         </form>
     </div>
+
+    <!-- RINGKASAN KEUANGAN -->
+    <div class="finance-card">
+        <div class="finance-title"><i class="ti ti-wallet"></i> Ringkasan Keuangan</div>
+
+        <div class="finance-row">
+            <div class="finance-label">Menunggu Dicairkan</div>
+            <div class="finance-value pending">Rp<?= number_format($totalBelumDicairkan, 0, ',', '.') ?></div>
+        </div>
+
+        <div class="finance-row">
+            <div class="finance-label">Sudah Dicairkan</div>
+            <div class="finance-value done">Rp<?= number_format($totalSudahDicairkan, 0, ',', '.') ?></div>
+        </div>
+
+        <a href="index.php?page=keuangan" class="finance-link">
+            <i class="ti ti-list-details"></i> Lihat Riwayat Pencairan
+        </a>
+    </div>
 </div>
+
+<script>
+function toggleQrisUpload() {
+    const val = document.getElementById('nama_penyedia').value;
+    document.getElementById('qris_upload_group').style.display = (val === 'QRIS') ? 'block' : 'none';
+}
+toggleQrisUpload();
+</script>
