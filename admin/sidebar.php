@@ -13,6 +13,18 @@ if (!isset($pending_reports)) {
     $pending_reports = (int) $conn->query("SELECT COUNT(*) FROM reports WHERE status='pending'")->fetchColumn();
 }
 
+// Hanya query jika $pending_pembayaran belum di-set oleh halaman pemanggil
+// (pembayaran rental yang butuh approval admin -> badge di menu Rentals)
+if (!isset($pending_pembayaran)) {
+    $pending_pembayaran = (int) $conn->query("SELECT COUNT(*) FROM rentals WHERE status_pembayaran='menunggu_konfirmasi' AND bukti_pembayaran IS NOT NULL")->fetchColumn();
+}
+
+// Hanya query jika $pending_pencairan belum di-set oleh halaman pemanggil
+// (dana rental yang sudah lunas & selesai tapi belum dicairkan -> badge di menu Pencairan)
+if (!isset($pending_pencairan)) {
+    $pending_pencairan = (int) $conn->query("SELECT COUNT(*) FROM rentals WHERE status_pencairan='belum_dicairkan' AND status_pembayaran='lunas' AND status_pinjam='selesai'")->fetchColumn();
+}
+
 // Hitung total notifikasi untuk badge
 if (!isset($total_notifikasi)) {
     $c_u = (int)$conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
@@ -167,6 +179,16 @@ $current_page = basename($_SERVER['PHP_SELF']);
 
     <a href="rentals.php" class="nav-item <?= $current_page === 'rentals.php' ? 'active' : '' ?>">
         <i class="ti ti-shopping-cart"></i> Rentals
+        <?php if ($pending_pembayaran > 0): ?>
+            <span class="nav-badge"><?= $pending_pembayaran ?></span>
+        <?php endif; ?>
+    </a>
+
+    <a href="pencairan.php" class="nav-item <?= $current_page === 'pencairan.php' ? 'active' : '' ?>">
+        <i class="ti ti-cash"></i> Pencairan
+        <?php if ($pending_pencairan > 0): ?>
+            <span class="nav-badge"><?= $pending_pencairan ?></span>
+        <?php endif; ?>
     </a>
 
     <a href="reports.php" class="nav-item <?= $current_page === 'reports.php' ? 'active' : '' ?>">

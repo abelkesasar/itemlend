@@ -7,7 +7,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     exit;
 }
 
-// ── Handle aksi POST (konfirmasi/tolak pembayaran, pencairan dana)
+// ── Handle aksi POST (konfirmasi/tolak pembayaran)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $rental_id = (int) ($_POST['rental_id'] ?? 0);
     $aksi      = $_POST['aksi'] ?? '';
@@ -20,23 +20,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $catatan = trim($_POST['catatan'] ?? '');
             $conn->prepare("UPDATE rentals SET status_pembayaran='ditolak', catatan_admin=? WHERE id=?")
                  ->execute([$catatan, $rental_id]);
-        } elseif ($aksi === 'cairkan_dana') {
-            if (!empty($_FILES['bukti_pencairan']['name']) && $_FILES['bukti_pencairan']['error'] === 0) {
-                $ext = strtolower(pathinfo($_FILES['bukti_pencairan']['name'], PATHINFO_EXTENSION));
-                $allowed = ['jpg','jpeg','png','pdf'];
-                if (in_array($ext, $allowed)) {
-                    $bukti_file = 'pencairan_' . $rental_id . '_' . time() . '.' . $ext;
-                    $dest = '../uploads/bukti/' . $bukti_file;
-                    if (move_uploaded_file($_FILES['bukti_pencairan']['tmp_name'], $dest)) {
-                        $conn->prepare("UPDATE rentals 
-                                         SET status_pencairan='sudah_dicairkan', 
-                                             bukti_pencairan=?, 
-                                             tanggal_pencairan=NOW() 
-                                         WHERE id=?")
-                             ->execute([$bukti_file, $rental_id]);
-                    }
-                }
-            }
         }
     }
     $tab = $_GET['tab'] ?? 'semua';
@@ -49,7 +32,6 @@ $pending_users       = $conn->query("SELECT COUNT(*) FROM users WHERE status='pe
 $total_rentals       = $conn->query("SELECT COUNT(*) FROM rentals")->fetchColumn();
 $total_revenue       = $conn->query("SELECT COALESCE(SUM(total_harga),0) FROM rentals WHERE status_pembayaran='lunas'")->fetchColumn();
 $menunggu_konfirmasi = $conn->query("SELECT COUNT(*) FROM rentals WHERE status_pembayaran='menunggu_konfirmasi'")->fetchColumn();
-$perlu_dicairkan     = $conn->query("SELECT COUNT(*) FROM rentals WHERE status_pinjam='selesai' AND status_pembayaran='lunas' AND status_pencairan='belum_dicairkan'")->fetchColumn();
 
 // ── Tab & Filter
 $tab    = $_GET['tab']  ?? 'semua';
@@ -71,7 +53,6 @@ $tab_where = match($tab) {
     'sedang_dipinjam'     => "r.status_pinjam = 'sedang_dipinjam'",
     'selesai'             => "r.status_pinjam = 'selesai'",
     'pending'             => "r.status_pembayaran = 'pending'",
-    'siap_cair'           => "r.status_pinjam='selesai' AND r.status_pembayaran='lunas' AND r.status_pencairan='belum_dicairkan'",
     default               => "1=1",
 };
 $where[] = $tab_where;
@@ -119,7 +100,6 @@ $tab_counts = [
     'ditolak'             => countTab($conn, "r.status_pembayaran='ditolak'"),
     'sedang_dipinjam'     => countTab($conn, "r.status_pinjam='sedang_dipinjam'"),
     'selesai'             => countTab($conn, "r.status_pinjam='selesai'"),
-    'siap_cair'           => countTab($conn, "r.status_pinjam='selesai' AND r.status_pembayaran='lunas' AND r.status_pencairan='belum_dicairkan'"),
 ];
 
 $av_colors = [
@@ -156,7 +136,7 @@ $av_colors = [
         .content { padding: 24px 28px; max-width: 1180px; }
 
         /* Stats */
-        .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 24px; max-width: 760px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 24px; max-width: 570px; }
         .stat-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px; display: flex; align-items: center; gap: 14px; }
         .stat-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .stat-icon i { font-size: 21px; }
@@ -364,7 +344,7 @@ $av_colors = [
         <div class="topbar">
             <div>
                 <h1>Kelola Rental</h1>
-                <p>Konfirmasi pembayaran · Status pinjam dikelola pemilik barang · Pencairan dana ke pemilik</p>
+                <p>Konfirmasi pembayaran · Status pinjam dikelola pemilik barang</p>
             </div>
             <div class="topbar-right">
                 <span class="admin-pill">Admin</span>
@@ -387,10 +367,6 @@ $av_colors = [
                 <div class="stat-card">
                     <div class="stat-icon green"><i class="ti ti-cash"></i></div>
                     <div><div class="stat-label">Total Revenue</div><div class="stat-value" style="font-size:15px;">Rp <?= number_format($total_revenue,0,',','.') ?></div></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon purple"><i class="ti ti-wallet"></i></div>
-                    <div><div class="stat-label">Perlu Dicairkan</div><div class="stat-value"><?= $perlu_dicairkan ?></div></div>
                 </div>
             </div>
 
@@ -459,12 +435,11 @@ $av_colors = [
                     'ditolak'             => ['Ditolak',            'ti-x'],
                     'sedang_dipinjam'     => ['Sedang Dipinjam',    'ti-clock-play'],
                     'selesai'             => ['Selesai',            'ti-circle-check'],
-                    'siap_cair'           => ['Siap Dicairkan',     'ti-wallet'],
                 ];
                 foreach ($tabs_def as $key => $td):
                     $cnt    = $tab_counts[$key] ?? 0;
                     $active = $tab === $key ? 'active' : '';
-                    $badge_cls = ($key === 'menunggu_konfirmasi' && $cnt > 0) ? 'red' : (($key === 'siap_cair' && $cnt > 0) ? 'purple' : '');
+                    $badge_cls = ($key === 'menunggu_konfirmasi' && $cnt > 0) ? 'red' : '';
                 ?>
                 <a href="?tab=<?= $key ?><?= $search ? '&q='.urlencode($search) : '' ?>"
                    class="tab-pill <?= $active ?>">
@@ -485,11 +460,8 @@ $av_colors = [
                 <?php foreach ($rentals as $r):
                     $sp   = $r['status_pembayaran'] ?? 'pending';
                     $spj  = $r['status_pinjam']     ?? 'belum_mulai';
-                    $spc  = $r['status_pencairan']  ?? 'belum_dicairkan';
                     $dur  = (int) ((strtotime($r['tanggal_selesai']) - strtotime($r['tanggal_mulai'])) / 86400);
                     $tot  = $r['total_harga'] ?: ($dur * $r['harga']);
-                    $komisi    = $r['komisi_admin']    ?: round($tot * 0.05);
-                    $dicairkan = $r['jumlah_dicairkan'] ?: ($tot - $komisi);
 $g = null;
 if (!empty($r['gambar'])) {
     $gambar_list = json_decode($r['gambar'], true);
@@ -517,11 +489,7 @@ if (!empty($r['gambar'])) {
                         $sisa_hari = max(0, (int) ceil(($selesai-$now)/86400));
                     }
 
-                    $siap_dicairkan_flag = ($spj === 'selesai' && $sp === 'lunas' && $spc === 'belum_dicairkan');
-
                     $badge = match(true) {
-                        $spj === 'selesai' && $sp === 'lunas' && $spc === 'sudah_dicairkan' => '<span class="sbadge sb-dicairkan"><i class="ti ti-circle-check"></i> Sudah Dicairkan</span>',
-                        $siap_dicairkan_flag           => '<span class="sbadge sb-siapcair"><i class="ti ti-wallet"></i> Siap Dicairkan</span>',
                         $spj === 'selesai'             => '<span class="sbadge sb-selesai"><i class="ti ti-circle-check"></i> Selesai</span>',
                         $spj === 'sedang_dipinjam'     => '<span class="sbadge sb-pinjam"><i class="ti ti-clock-play"></i> Dipinjam</span>',
                         $sp  === 'lunas'               => '<span class="sbadge sb-lunas"><i class="ti ti-check"></i> Lunas</span>',
@@ -536,7 +504,7 @@ if (!empty($r['gambar'])) {
                     $pinjam_icons  = ['ti-clock','ti-clock-play','ti-circle-check'];
                     $cur_idx = array_search($spj, $order_pinjam);
                 ?>
-                <div class="rental-card <?= $sp==='menunggu_konfirmasi' ? 'urgent' : ($siap_dicairkan_flag ? 'urgent-cair' : '') ?>">
+                <div class="rental-card <?= $sp==='menunggu_konfirmasi' ? 'urgent' : '' ?>">
 
                     <div class="rc-head">
                         <div class="rc-thumb">
@@ -639,52 +607,6 @@ if (!empty($r['gambar'])) {
                         <i class="ti ti-circle-check" style="color:#16a34a;font-size:14px;"></i>
                         Dikonfirmasi pada <?= date('d M Y H:i', strtotime($r['paid_at'])) ?>
                     </div>
-                    <?php endif; ?>
-
-                    <!-- Pencairan dana ke pemilik -->
-                    <?php if ($spj === 'selesai' && $sp === 'lunas'): ?>
-                        <?php if ($spc === 'sudah_dicairkan'): ?>
-                        <div class="pencairan-row">
-                            <div class="pencairan-row-top"><i class="ti ti-circle-check"></i> Dana sudah dicairkan ke pemilik</div>
-                            <div class="pencairan-detail">
-                                <span>Dicairkan: <b>Rp <?= number_format($dicairkan,0,',','.') ?></b></span>
-                                <span>Komisi admin: <b>Rp <?= number_format($komisi,0,',','.') ?></b></span>
-                                <?php if (!empty($r['tanggal_pencairan'])): ?>
-                                <span>Tanggal: <b><?= date('d M Y H:i', strtotime($r['tanggal_pencairan'])) ?></b></span>
-                                <?php endif; ?>
-                                <?php if (!empty($r['bukti_pencairan'])): ?>
-                                <a href="../uploads/bukti/<?= htmlspecialchars($r['bukti_pencairan']) ?>" target="_blank" class="btn-bukti" style="border-color:#ddd6fe;color:#6d28d9;">
-                                    <i class="ti ti-eye" style="font-size:13px;"></i> Lihat Bukti
-                                </a>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <?php else: ?>
-                        <div class="pencairan-row">
-                            <div class="pencairan-row-top"><i class="ti ti-wallet"></i> Perlu dicairkan ke pemilik</div>
-                            <div class="pencairan-detail">
-                                <span>Total sewa: <b>Rp <?= number_format($tot,0,',','.') ?></b></span>
-                                <span>Komisi admin (5%): <b>Rp <?= number_format($komisi,0,',','.') ?></b></span>
-                                <span>Ditransfer: <b>Rp <?= number_format($dicairkan,0,',','.') ?></b></span>
-                            </div>
-                            <?php if (!empty($r['pemilik_metode'])): ?>
-                            <div class="pencairan-detail">
-                                <span><?= ucfirst($r['pemilik_metode']) ?>: <b><?= htmlspecialchars($r['pemilik_penyedia']) ?> — <?= htmlspecialchars($r['pemilik_rekening']) ?> a.n. <?= htmlspecialchars($r['pemilik_nama_rek']) ?></b></span>
-                            </div>
-                            <form method="POST" enctype="multipart/form-data" class="pencairan-form">
-                                <input type="hidden" name="rental_id" value="<?= $r['id'] ?>">
-                                <input type="hidden" name="aksi" value="cairkan_dana">
-                                <input type="file" name="bukti_pencairan" accept=".jpg,.jpeg,.png,.pdf" required>
-                                <button type="submit" class="btn-aksi btn-cairkan"
-                                        onclick="return confirm('Konfirmasi dana Rp <?= number_format($dicairkan,0,',','.') ?> sudah ditransfer ke pemilik?')">
-                                    <i class="ti ti-send"></i> Tandai Sudah Dicairkan
-                                </button>
-                            </form>
-                            <?php else: ?>
-                            <div class="pencairan-warn">⚠ Pemilik belum setup metode pembayaran, belum bisa dicairkan</div>
-                            <?php endif; ?>
-                        </div>
-                        <?php endif; ?>
                     <?php endif; ?>
 
                     <!-- Aksi admin: konfirmasi/tolak pembayaran -->
