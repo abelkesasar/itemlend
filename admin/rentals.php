@@ -7,7 +7,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     exit;
 }
 
-// ── Handle aksi POST (hanya konfirmasi/tolak pembayaran)
+// ── Handle aksi POST (konfirmasi/tolak pembayaran, pencairan dana)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $rental_id = (int) ($_POST['rental_id'] ?? 0);
     $aksi      = $_POST['aksi'] ?? '';
@@ -20,6 +20,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $catatan = trim($_POST['catatan'] ?? '');
             $conn->prepare("UPDATE rentals SET status_pembayaran='ditolak', catatan_admin=? WHERE id=?")
                  ->execute([$catatan, $rental_id]);
+        } elseif ($aksi === 'cairkan_dana') {
+            if (!empty($_FILES['bukti_pencairan']['name']) && $_FILES['bukti_pencairan']['error'] === 0) {
+                $ext = strtolower(pathinfo($_FILES['bukti_pencairan']['name'], PATHINFO_EXTENSION));
+                $allowed = ['jpg','jpeg','png','pdf'];
+                if (in_array($ext, $allowed)) {
+                    $bukti_file = 'pencairan_' . $rental_id . '_' . time() . '.' . $ext;
+                    $dest = '../uploads/bukti/' . $bukti_file;
+                    if (move_uploaded_file($_FILES['bukti_pencairan']['tmp_name'], $dest)) {
+                        $conn->prepare("UPDATE rentals 
+                                         SET status_pencairan='sudah_dicairkan', 
+                                             bukti_pencairan=?, 
+                                             tanggal_pencairan=NOW() 
+                                         WHERE id=?")
+                             ->execute([$bukti_file, $rental_id]);
+                    }
+                }
+            }
         }
     }
     $tab = $_GET['tab'] ?? 'semua';
@@ -32,6 +49,7 @@ $pending_users       = $conn->query("SELECT COUNT(*) FROM users WHERE status='pe
 $total_rentals       = $conn->query("SELECT COUNT(*) FROM rentals")->fetchColumn();
 $total_revenue       = $conn->query("SELECT COALESCE(SUM(total_harga),0) FROM rentals WHERE status_pembayaran='lunas'")->fetchColumn();
 $menunggu_konfirmasi = $conn->query("SELECT COUNT(*) FROM rentals WHERE status_pembayaran='menunggu_konfirmasi'")->fetchColumn();
+$perlu_dicairkan     = $conn->query("SELECT COUNT(*) FROM rentals WHERE status_pinjam='selesai' AND status_pembayaran='lunas' AND status_pencairan='belum_dicairkan'")->fetchColumn();
 
 // ── Tab & Filter
 $tab    = $_GET['tab']  ?? 'semua';
@@ -53,6 +71,7 @@ $tab_where = match($tab) {
     'sedang_dipinjam'     => "r.status_pinjam = 'sedang_dipinjam'",
     'selesai'             => "r.status_pinjam = 'selesai'",
     'pending'             => "r.status_pembayaran = 'pending'",
+    'siap_cair'           => "r.status_pinjam='selesai' AND r.status_pembayaran='lunas' AND r.status_pencairan='belum_dicairkan'",
     default               => "1=1",
 };
 $where[] = $tab_where;
@@ -68,7 +87,11 @@ $sql = "
     SELECT r.*,
            i.nama_barang, i.harga, i.gambar, i.lokasi,
            u.username  AS penyewa,
-           pu.username AS pemilik
+           pu.username AS pemilik,
+           pu.metode_pembayaran     AS pemilik_metode,
+           pu.nama_penyedia         AS pemilik_penyedia,
+           pu.nomor_rekening        AS pemilik_rekening,
+           pu.nama_pemilik_rekening AS pemilik_nama_rek
     FROM rentals r
     JOIN items i  ON r.item_id = i.id
     JOIN users u  ON r.user_id = u.id
@@ -96,6 +119,7 @@ $tab_counts = [
     'ditolak'             => countTab($conn, "r.status_pembayaran='ditolak'"),
     'sedang_dipinjam'     => countTab($conn, "r.status_pinjam='sedang_dipinjam'"),
     'selesai'             => countTab($conn, "r.status_pinjam='selesai'"),
+    'siap_cair'           => countTab($conn, "r.status_pinjam='selesai' AND r.status_pembayaran='lunas' AND r.status_pencairan='belum_dicairkan'"),
 ];
 
 $av_colors = [
@@ -117,6 +141,11 @@ $av_colors = [
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f4f5f7; color: #1a1d2e; min-height: 100vh; }
         a { text-decoration: none; color: inherit; }
 
+        .admin-wrap { display: flex; min-height: 100vh; }
+        .main { margin-left: 220px; flex: 1; display: flex; flex-direction: column; }
+
+        .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
         .topbar { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 0 28px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
         .topbar h1 { font-size: 17px; font-weight: 600; }
         .topbar p  { font-size: 12px; color: #6b7280; margin-top: 1px; }
@@ -124,10 +153,10 @@ $av_colors = [
         .admin-pill { background: #eef0ff; color: #3d4bff; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 20px; }
         .avatar { width: 32px; height: 32px; border-radius: 50%; background: #3d4bff; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
 
-        .content { padding: 24px 28px; }
+        .content { padding: 24px 28px; max-width: 1180px; }
 
         /* Stats */
-        .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 24px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 24px; max-width: 760px; }
         .stat-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 18px; display: flex; align-items: center; gap: 14px; }
         .stat-icon { width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .stat-icon i { font-size: 21px; }
@@ -135,6 +164,7 @@ $av_colors = [
         .stat-icon.green { background: #e9f9f0; color: #16a34a; }
         .stat-icon.amber { background: #fff7e6; color: #cc7a00; }
         .stat-icon.teal  { background: #e4f7f5; color: #0d7d72; }
+        .stat-icon.purple{ background: #f5f3ff; color: #7c3aed; }
         .stat-label { font-size: 12px; color: #6b7280; margin-bottom: 3px; }
         .stat-value { font-size: 22px; font-weight: 800; color: #1a1d2e; line-height: 1; }
 
@@ -155,11 +185,13 @@ $av_colors = [
         .tc { font-size: 10.5px; font-weight: 700; background: #f0f1f3; color: #6b7280; border-radius: 20px; padding: 1px 7px; }
         .tab-pill.active .tc { background: rgba(255,255,255,0.25); color: #fff; }
         .tc.red { background: #ff5c5c; color: #fff; }
+        .tc.purple { background: #7c3aed; color: #fff; }
 
         /* Cards */
         .rental-list { display: flex; flex-direction: column; gap: 12px; }
         .rental-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; }
         .rental-card.urgent { border-left: 4px solid #f59e0b; }
+        .rental-card.urgent-cair { border-left: 4px solid #7c3aed; }
 
         .rc-head { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-bottom: 1px solid #f0f1f3; }
         .rc-thumb { width: 52px; height: 52px; border-radius: 10px; flex-shrink: 0; background: #f0f1f5; overflow: hidden; display: flex; align-items: center; justify-content: center; }
@@ -182,6 +214,8 @@ $av_colors = [
         .sb-ditolak    { background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; }
         .sb-pinjam     { background: #eff6ff; color: #2563eb; border: 1px solid #93c5fd; }
         .sb-selesai    { background: #f4f5f7; color: #6b7280; border: 1px solid #d1d5db; }
+        .sb-siapcair   { background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }
+        .sb-dicairkan  { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
 
         /* Body 3 kolom */
         .rc-body { display: grid; grid-template-columns: 1fr 1fr 1fr; border-bottom: 1px solid #f0f1f3; }
@@ -226,6 +260,21 @@ $av_colors = [
         /* Paid at */
         .paid-row { padding: 8px 18px; background: #f8f9fb; border-top: 1px solid #f0f1f3; font-size: 12px; color: #6b7280; display: flex; align-items: center; gap: 6px; }
 
+        /* Pencairan dana */
+        .pencairan-row {
+            padding: 12px 18px; border-bottom: 1px solid #f0f1f3;
+            background: #f5f3ff; display: flex; flex-direction: column; gap: 8px;
+        }
+        .pencairan-row-top { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #6d28d9; font-weight: 700; }
+        .pencairan-row-top i { font-size: 16px; }
+        .pencairan-detail { font-size: 12px; color: #4c1d95; display: flex; gap: 14px; flex-wrap: wrap; }
+        .pencairan-detail b { color: #1a1d2e; }
+        .pencairan-warn { font-size: 12px; color: #dc2626; font-weight: 600; }
+        .pencairan-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+        .pencairan-form input[type="file"] { font-size: 12px; font-family: inherit; }
+        .btn-cairkan { background: #7c3aed; color: #fff; }
+        .btn-cairkan:hover { background: #6d28d9; }
+
         /* Footer aksi */
         .rc-footer { padding: 12px 18px; display: flex; gap: 8px; flex-wrap: wrap; }
         .btn-aksi { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 8px; font-size: 12.5px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; transition: all 0.15s; }
@@ -263,50 +312,51 @@ $av_colors = [
             .rc-body { grid-template-columns: 1fr; }
             .rc-cell { border-right: none; border-bottom: 1px solid #f0f1f3; }
         }
-        <style id="export-style-snippet">
-    .export-bar {
-        display: flex; align-items: center; gap: 10px;
-        background: #fff; border: 1px solid #e5e7eb;
-        border-radius: 12px; padding: 14px 18px;
-        margin-bottom: 18px; flex-wrap: wrap;
-    }
-    .export-bar-label {
-        display: flex; align-items: center; gap: 7px;
-        font-size: 13px; font-weight: 700; color: #1a1d2e;
-        white-space: nowrap;
-    }
-    .export-bar-label i { font-size: 18px; color: #3d4bff; }
-    .export-input {
-        height: 38px; border: 1.5px solid #e5e7eb; border-radius: 9px;
-        padding: 0 12px; background: #fff; font-family: inherit;
-        font-size: 13px; color: #1a1d2e; outline: none;
-        transition: border-color 0.15s;
-    }
-    .export-input:focus { border-color: #3d4bff; }
-    .export-input-wrap {
-        display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-    }
-    .export-input-group {
-        display: flex; align-items: center; gap: 6px;
-    }
-    .export-input-group label {
-        font-size: 12px; font-weight: 600; color: #6b7280; white-space: nowrap;
-    }
-    .btn-export {
-        display: inline-flex; align-items: center; gap: 7px;
-        padding: 9px 18px; background: #16a34a; color: #fff;
-        border: none; border-radius: 9px; font-family: inherit;
-        font-size: 13px; font-weight: 700; cursor: pointer;
-        transition: background 0.15s; white-space: nowrap; margin-left: auto;
-    }
-    .btn-export:hover { background: #15803d; }
-    .btn-export i { font-size: 17px; }
-    .export-sep { width: 1px; height: 24px; background: #e5e7eb; }
-</style>
+        @media (max-width: 600px) {
+            .content { padding: 16px; }
+        }
+        .export-bar {
+            display: flex; align-items: center; gap: 10px;
+            background: #fff; border: 1px solid #e5e7eb;
+            border-radius: 12px; padding: 14px 18px;
+            margin-bottom: 18px; flex-wrap: wrap;
+        }
+        .export-bar-label {
+            display: flex; align-items: center; gap: 7px;
+            font-size: 13px; font-weight: 700; color: #1a1d2e;
+            white-space: nowrap;
+        }
+        .export-bar-label i { font-size: 18px; color: #3d4bff; }
+        .export-input {
+            height: 38px; border: 1.5px solid #e5e7eb; border-radius: 9px;
+            padding: 0 12px; background: #fff; font-family: inherit;
+            font-size: 13px; color: #1a1d2e; outline: none;
+            transition: border-color 0.15s;
+        }
+        .export-input:focus { border-color: #3d4bff; }
+        .export-input-wrap {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        }
+        .export-input-group {
+            display: flex; align-items: center; gap: 6px;
+        }
+        .export-input-group label {
+            font-size: 12px; font-weight: 600; color: #6b7280; white-space: nowrap;
+        }
+        .btn-export {
+            display: inline-flex; align-items: center; gap: 7px;
+            padding: 9px 18px; background: #16a34a; color: #fff;
+            border: none; border-radius: 9px; font-family: inherit;
+            font-size: 13px; font-weight: 700; cursor: pointer;
+            transition: background 0.15s; white-space: nowrap; margin-left: auto;
+        }
+        .btn-export:hover { background: #15803d; }
+        .btn-export i { font-size: 17px; }
+        .export-sep { width: 1px; height: 24px; background: #e5e7eb; }
     </style>
 </head>
 <body>
-<div class="admin-wrap" style="display:flex;min-height:100vh;">
+<div class="admin-wrap">
 
     <?php include 'sidebar.php'; ?>
 
@@ -314,7 +364,7 @@ $av_colors = [
         <div class="topbar">
             <div>
                 <h1>Kelola Rental</h1>
-                <p>Konfirmasi pembayaran · Status pinjam dikelola pemilik barang</p>
+                <p>Konfirmasi pembayaran · Status pinjam dikelola pemilik barang · Pencairan dana ke pemilik</p>
             </div>
             <div class="topbar-right">
                 <span class="admin-pill">Admin</span>
@@ -339,8 +389,8 @@ $av_colors = [
                     <div><div class="stat-label">Total Revenue</div><div class="stat-value" style="font-size:15px;">Rp <?= number_format($total_revenue,0,',','.') ?></div></div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-icon teal"><i class="ti ti-clock-play"></i></div>
-                    <div><div class="stat-label">Sedang Dipinjam</div><div class="stat-value"><?= $tab_counts['sedang_dipinjam'] ?></div></div>
+                    <div class="stat-icon purple"><i class="ti ti-wallet"></i></div>
+                    <div><div class="stat-label">Perlu Dicairkan</div><div class="stat-value"><?= $perlu_dicairkan ?></div></div>
                 </div>
             </div>
 
@@ -409,11 +459,12 @@ $av_colors = [
                     'ditolak'             => ['Ditolak',            'ti-x'],
                     'sedang_dipinjam'     => ['Sedang Dipinjam',    'ti-clock-play'],
                     'selesai'             => ['Selesai',            'ti-circle-check'],
+                    'siap_cair'           => ['Siap Dicairkan',     'ti-wallet'],
                 ];
                 foreach ($tabs_def as $key => $td):
                     $cnt    = $tab_counts[$key] ?? 0;
                     $active = $tab === $key ? 'active' : '';
-                    $badge_cls = ($key === 'menunggu_konfirmasi' && $cnt > 0) ? 'red' : '';
+                    $badge_cls = ($key === 'menunggu_konfirmasi' && $cnt > 0) ? 'red' : (($key === 'siap_cair' && $cnt > 0) ? 'purple' : '');
                 ?>
                 <a href="?tab=<?= $key ?><?= $search ? '&q='.urlencode($search) : '' ?>"
                    class="tab-pill <?= $active ?>">
@@ -434,8 +485,11 @@ $av_colors = [
                 <?php foreach ($rentals as $r):
                     $sp   = $r['status_pembayaran'] ?? 'pending';
                     $spj  = $r['status_pinjam']     ?? 'belum_mulai';
+                    $spc  = $r['status_pencairan']  ?? 'belum_dicairkan';
                     $dur  = (int) ((strtotime($r['tanggal_selesai']) - strtotime($r['tanggal_mulai'])) / 86400);
                     $tot  = $r['total_harga'] ?: ($dur * $r['harga']);
+                    $komisi    = $r['komisi_admin']    ?: round($tot * 0.05);
+                    $dicairkan = $r['jumlah_dicairkan'] ?: ($tot - $komisi);
 $g = null;
 if (!empty($r['gambar'])) {
     $gambar_list = json_decode($r['gambar'], true);
@@ -463,7 +517,11 @@ if (!empty($r['gambar'])) {
                         $sisa_hari = max(0, (int) ceil(($selesai-$now)/86400));
                     }
 
+                    $siap_dicairkan_flag = ($spj === 'selesai' && $sp === 'lunas' && $spc === 'belum_dicairkan');
+
                     $badge = match(true) {
+                        $spj === 'selesai' && $sp === 'lunas' && $spc === 'sudah_dicairkan' => '<span class="sbadge sb-dicairkan"><i class="ti ti-circle-check"></i> Sudah Dicairkan</span>',
+                        $siap_dicairkan_flag           => '<span class="sbadge sb-siapcair"><i class="ti ti-wallet"></i> Siap Dicairkan</span>',
                         $spj === 'selesai'             => '<span class="sbadge sb-selesai"><i class="ti ti-circle-check"></i> Selesai</span>',
                         $spj === 'sedang_dipinjam'     => '<span class="sbadge sb-pinjam"><i class="ti ti-clock-play"></i> Dipinjam</span>',
                         $sp  === 'lunas'               => '<span class="sbadge sb-lunas"><i class="ti ti-check"></i> Lunas</span>',
@@ -478,7 +536,7 @@ if (!empty($r['gambar'])) {
                     $pinjam_icons  = ['ti-clock','ti-clock-play','ti-circle-check'];
                     $cur_idx = array_search($spj, $order_pinjam);
                 ?>
-                <div class="rental-card <?= $sp==='menunggu_konfirmasi' ? 'urgent' : '' ?>">
+                <div class="rental-card <?= $sp==='menunggu_konfirmasi' ? 'urgent' : ($siap_dicairkan_flag ? 'urgent-cair' : '') ?>">
 
                     <div class="rc-head">
                         <div class="rc-thumb">
@@ -583,7 +641,53 @@ if (!empty($r['gambar'])) {
                     </div>
                     <?php endif; ?>
 
-                    <!-- Aksi admin: HANYA konfirmasi/tolak pembayaran -->
+                    <!-- Pencairan dana ke pemilik -->
+                    <?php if ($spj === 'selesai' && $sp === 'lunas'): ?>
+                        <?php if ($spc === 'sudah_dicairkan'): ?>
+                        <div class="pencairan-row">
+                            <div class="pencairan-row-top"><i class="ti ti-circle-check"></i> Dana sudah dicairkan ke pemilik</div>
+                            <div class="pencairan-detail">
+                                <span>Dicairkan: <b>Rp <?= number_format($dicairkan,0,',','.') ?></b></span>
+                                <span>Komisi admin: <b>Rp <?= number_format($komisi,0,',','.') ?></b></span>
+                                <?php if (!empty($r['tanggal_pencairan'])): ?>
+                                <span>Tanggal: <b><?= date('d M Y H:i', strtotime($r['tanggal_pencairan'])) ?></b></span>
+                                <?php endif; ?>
+                                <?php if (!empty($r['bukti_pencairan'])): ?>
+                                <a href="../uploads/bukti/<?= htmlspecialchars($r['bukti_pencairan']) ?>" target="_blank" class="btn-bukti" style="border-color:#ddd6fe;color:#6d28d9;">
+                                    <i class="ti ti-eye" style="font-size:13px;"></i> Lihat Bukti
+                                </a>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <?php else: ?>
+                        <div class="pencairan-row">
+                            <div class="pencairan-row-top"><i class="ti ti-wallet"></i> Perlu dicairkan ke pemilik</div>
+                            <div class="pencairan-detail">
+                                <span>Total sewa: <b>Rp <?= number_format($tot,0,',','.') ?></b></span>
+                                <span>Komisi admin (5%): <b>Rp <?= number_format($komisi,0,',','.') ?></b></span>
+                                <span>Ditransfer: <b>Rp <?= number_format($dicairkan,0,',','.') ?></b></span>
+                            </div>
+                            <?php if (!empty($r['pemilik_metode'])): ?>
+                            <div class="pencairan-detail">
+                                <span><?= ucfirst($r['pemilik_metode']) ?>: <b><?= htmlspecialchars($r['pemilik_penyedia']) ?> — <?= htmlspecialchars($r['pemilik_rekening']) ?> a.n. <?= htmlspecialchars($r['pemilik_nama_rek']) ?></b></span>
+                            </div>
+                            <form method="POST" enctype="multipart/form-data" class="pencairan-form">
+                                <input type="hidden" name="rental_id" value="<?= $r['id'] ?>">
+                                <input type="hidden" name="aksi" value="cairkan_dana">
+                                <input type="file" name="bukti_pencairan" accept=".jpg,.jpeg,.png,.pdf" required>
+                                <button type="submit" class="btn-aksi btn-cairkan"
+                                        onclick="return confirm('Konfirmasi dana Rp <?= number_format($dicairkan,0,',','.') ?> sudah ditransfer ke pemilik?')">
+                                    <i class="ti ti-send"></i> Tandai Sudah Dicairkan
+                                </button>
+                            </form>
+                            <?php else: ?>
+                            <div class="pencairan-warn">⚠ Pemilik belum setup metode pembayaran, belum bisa dicairkan</div>
+                            <?php endif; ?>
+                        </div>
+                        <?php endif; ?>
+                    <?php endif; ?>
+
+                    <!-- Aksi admin: konfirmasi/tolak pembayaran -->
                     <div class="rc-footer">
                         <?php if ($sp === 'menunggu_konfirmasi'): ?>
                             <form method="POST" style="display:contents">
