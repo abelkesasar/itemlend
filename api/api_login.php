@@ -79,7 +79,7 @@ try {
         exit;
     }
 
-    // --- Cek status approval (logic sama seperti versi web) ---
+    // --- Cek status approval & cooldown/ban (logic sama seperti versi web) ---
     if ($user['role'] !== 'admin' && $user['status'] === 'pending') {
         http_response_code(403);
         echo json_encode([
@@ -87,6 +87,33 @@ try {
             'message' => 'Akun kamu masih menunggu persetujuan admin. Silakan tunggu ya!'
         ]);
         exit;
+    }
+
+    if ($user['role'] !== 'admin' && $user['status'] === 'cooldown') {
+        $bannedUntil = $user['banned_until'] ?? null;
+
+        if ($bannedUntil && strtotime($bannedUntil) > time()) {
+            // Masih dalam masa cooldown -> tolak login, kasih tau sampai kapan
+            $sisaDetik = strtotime($bannedUntil) - time();
+            $sisaHari = ceil($sisaDetik / 86400);
+
+            http_response_code(403);
+            echo json_encode([
+                'success' => false,
+                'message' => "Akun kamu sedang dalam masa cooldown sampai tanggal " .
+                              date('d M Y H:i', strtotime($bannedUntil)) .
+                              " (sekitar $sisaHari hari lagi).",
+                'data' => [
+                    'banned_until' => $bannedUntil,
+                ]
+            ]);
+            exit;
+        } else {
+            // Masa cooldown sudah lewat -> pulihkan otomatis jadi approved
+            $restore = $conn->prepare("UPDATE users SET status = 'approved', banned_until = NULL WHERE id = ?");
+            $restore->execute([$user['id']]);
+            $user['status'] = 'approved';
+        }
     }
 
     // --- Generate token baru untuk sesi mobile ---

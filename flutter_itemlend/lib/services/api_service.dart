@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,13 +21,11 @@ class ApiService {
       );
 
       final data = jsonDecode(response.body);
-      print('RESPONSE: $data'); // debug sementara, hapus kalau sudah beres
 
       if (response.statusCode == 200 && data['success'] == true) {
         final token = data['data']['token'];
         final user = data['data']['user'];
 
-        // Simpan token & data user ke local storage (device)
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('token', token);
         await prefs.setString('username', user['username']);
@@ -36,7 +35,56 @@ class ApiService {
 
       return data; // { success: bool, message: String, data?: {...} }
     } catch (e) {
-      print('LOGIN ERROR: $e'); // debug sementara, hapus kalau sudah beres
+      return {
+        'success': false,
+        'message': 'Tidak bisa terhubung ke server. Cek koneksi atau URL API.',
+      };
+    }
+  }
+
+  /// Register user baru, wajib kirim file KTP & KTM (multipart/form-data)
+  static Future<Map<String, dynamic>> register({
+    required String username,
+    required String email,
+    required String password,
+    required String alamat,
+    required String nomorWa,
+    required File ktpFile,
+    required File ktmFile,
+  }) async {
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/api_register.php'),
+      );
+
+      request.fields['username'] = username;
+      request.fields['email'] = email;
+      request.fields['password'] = password;
+      request.fields['alamat'] = alamat;
+      request.fields['nomor_wa'] = nomorWa;
+
+      request.files.add(await http.MultipartFile.fromPath('ktp_user', ktpFile.path));
+      request.files.add(await http.MultipartFile.fromPath('ktm', ktmFile.path));
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Tidak bisa terhubung ke server. Cek koneksi atau URL API.',
+      };
+    }
+  }
+
+  /// Ambil daftar barang yang sudah di-approve admin
+  static Future<Map<String, dynamic>> getItems() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api_items.php'));
+      return jsonDecode(response.body);
+    } catch (e) {
       return {
         'success': false,
         'message': 'Tidak bisa terhubung ke server. Cek koneksi atau URL API.',

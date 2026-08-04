@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'services/api_service.dart';
-import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 
 void main() {
@@ -16,32 +14,10 @@ class ItemLendApp extends StatelessWidget {
       title: 'ItemLend',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorSchemeSeed: Colors.indigo,
+        colorSchemeSeed: const Color(0xFF6366F1),
         useMaterial3: true,
       ),
-      home: const _AuthGate(),
-    );
-  }
-}
-
-/// Cek apakah user sudah punya token tersimpan (auto-login),
-/// kalau belum arahkan ke LoginScreen
-class _AuthGate extends StatelessWidget {
-  const _AuthGate();
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<String?>(
-      future: ApiService.getToken(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-        final hasToken = snapshot.data != null && snapshot.data!.isNotEmpty;
-        return hasToken ? const HomeScreen() : const LoginScreen();
-      },
+      home: const HomeScreen(),
     );
   }
 }
