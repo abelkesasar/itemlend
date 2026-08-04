@@ -59,8 +59,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     if ($owner_id > 0) {
                         $banned_until = date('Y-m-d H:i:s', strtotime('+7 days'));
-                        $conn->prepare("UPDATE users SET banned_until = ? WHERE id = ?")
-                             ->execute([$banned_until, $owner_id]);
+$conn->prepare("UPDATE users SET banned_until = ?, status = 'cooldown' WHERE id = ?")
+     ->execute([$banned_until, $owner_id]);
                     }
 
                     $conn->prepare("DELETE FROM items WHERE id = ?")
