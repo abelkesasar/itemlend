@@ -5,9 +5,9 @@ $username = $_POST['username'];
 $email = $_POST['email'];
 $password = md5($_POST['password']);
 $alamat = $_POST['alamat'];
-$role = $_POST['role'];
 $nomor_wa = $_POST['nomor_wa'];
 
+$role = 'user';
 $status = 'pending';
 
 $ktp = null;
@@ -17,47 +17,25 @@ $foto_profil = 'default.png';
 
 /*
 |--------------------------------------------------------------------------
-| USER
+| UPLOAD DOKUMEN (KTP & KTM)
 |--------------------------------------------------------------------------
 */
-if($role == 'user'){
 
-    $ktp = $_FILES['ktp_user']['name'];
-    $ktm = $_FILES['ktm']['name'];
+$ktp = $_FILES['ktp_user']['name'];
+$ktm = $_FILES['ktm']['name'];
 
-    $tmpKtp = $_FILES['ktp_user']['tmp_name'];
-    $tmpKtm = $_FILES['ktm']['tmp_name'];
+$tmpKtp = $_FILES['ktp_user']['tmp_name'];
+$tmpKtm = $_FILES['ktm']['tmp_name'];
 
-    move_uploaded_file(
-        $tmpKtp,
-        "../uploads/" . $ktp
-    );
+move_uploaded_file(
+    $tmpKtp,
+    "../uploads/" . $ktp
+);
 
-    move_uploaded_file(
-        $tmpKtm,
-        "../uploads/" . $ktm
-    );
-}
-
-/*
-|--------------------------------------------------------------------------
-| VENDOR
-|--------------------------------------------------------------------------
-*/
-else if($role == 'vendor'){
-
-    $ktp = $_FILES['ktp_vendor']['name'];
-
-    $tmpKtp = $_FILES['ktp_vendor']['tmp_name'];
-
-    move_uploaded_file(
-        $tmpKtp,
-        "../uploads/" . $ktp
-    );
-
-    $deskripsi_vendor =
-    $_POST['deskripsi_vendor'];
-}
+move_uploaded_file(
+    $tmpKtm,
+    "../uploads/" . $ktm
+);
 
 /*
 |--------------------------------------------------------------------------
