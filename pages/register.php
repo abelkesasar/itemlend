@@ -133,29 +133,6 @@
         }
         input[type=file]:focus { border-color: #3d4bff; }
 
-        /* ── ROLE TOGGLE ── */
-        .role-toggle {
-            display: grid; grid-template-columns: 1fr 1fr;
-            gap: 8px; margin-bottom: 0;
-        }
-        .role-opt { position: relative; }
-        .role-opt input[type=radio] { position: absolute; opacity: 0; width: 0; }
-        .role-opt label {
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            border: 1.5px solid #e5e7eb; border-radius: 10px;
-            padding: 10px; cursor: pointer; font-size: 13.5px; font-weight: 600;
-            color: #6b7280; background: #f9fafb;
-            transition: all 0.15s;
-        }
-        .role-opt label i { font-size: 18px; }
-        .role-opt input[type=radio]:checked + label {
-            border-color: #3d4bff; background: #eef0ff; color: #3d4bff;
-        }
-
-        /* ── CONDITIONAL FIELDS ── */
-        .cond-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .cond-fields.hidden { display: none; }
-
         /* ── DIVIDER ── */
         .divider {
             height: 1px; background: #f0f1f3;
@@ -194,7 +171,6 @@
             .topnav { padding: 16px 20px; }
             .form-card { padding: 28px 20px; border-radius: 20px; }
             .form-grid { grid-template-columns: 1fr; }
-            .cond-fields { grid-template-columns: 1fr; }
             .left-panel { display: none; }
         }
     </style>
@@ -264,45 +240,16 @@
                         <textarea name="alamat" rows="2" placeholder="Jl. Contoh No. 1, Kota" required></textarea>
                     </div>
 
-                    <!-- Daftar Sebagai -->
-                    <div class="form-group full">
-                        <label>Daftar Sebagai</label>
-                        <div class="role-toggle">
-                            <div class="role-opt">
-                                <input type="radio" name="role" id="role_user" value="user" checked onchange="toggleRole()">
-                                <label for="role_user"><i class="ti ti-user"></i> User</label>
-                            </div>
-                            <div class="role-opt">
-                                <input type="radio" name="role" id="role_vendor" value="vendor" onchange="toggleRole()">
-                                <label for="role_vendor"><i class="ti ti-store"></i> Vendor</label>
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="divider"></div>
 
-                    <!-- USER FIELDS -->
-                    <div class="cond-fields" id="userFields">
-                        <div class="form-group">
-                            <label>Upload KTP</label>
-                            <input type="file" name="ktp_user" accept="image/*,.pdf" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Upload KTM</label>
-                            <input type="file" name="ktm" accept="image/*,.pdf" required>
-                        </div>
+                    <!-- DOKUMEN -->
+                    <div class="form-group">
+                        <label>Upload KTP</label>
+                        <input type="file" name="ktp_user" accept="image/*,.pdf" required>
                     </div>
-
-                    <!-- VENDOR FIELDS -->
-                    <div class="cond-fields hidden" id="vendorFields">
-                        <div class="form-group">
-                            <label>Upload KTP Vendor</label>
-                            <input type="file" name="ktp_vendor" accept="image/*,.pdf">
-                        </div>
-                        <div class="form-group">
-                            <label>Deskripsi Usaha</label>
-                            <textarea name="deskripsi_vendor" rows="2" placeholder="Ceritakan usaha kamu..."></textarea>
-                        </div>
+                    <div class="form-group">
+                        <label>Upload KTM</label>
+                        <input type="file" name="ktm" accept="image/*,.pdf" required>
                     </div>
 
                     <div class="divider"></div>
@@ -326,25 +273,6 @@
         </div>
 
     </div>
-
-    <script>
-    function toggleRole() {
-        const role = document.querySelector('input[name="role"]:checked').value;
-        const userFields   = document.getElementById('userFields');
-        const vendorFields = document.getElementById('vendorFields');
-
-        if (role === 'vendor') {
-            vendorFields.classList.remove('hidden');
-            userFields.classList.add('hidden');
-            // hapus required dari field user, pasang ke vendor
-            userFields.querySelectorAll('[required]').forEach(el => el.removeAttribute('required'));
-        } else {
-            userFields.classList.remove('hidden');
-            vendorFields.classList.add('hidden');
-            vendorFields.querySelectorAll('[required]').forEach(el => el.removeAttribute('required'));
-        }
-    }
-    </script>
 
 </body>
 </html>
