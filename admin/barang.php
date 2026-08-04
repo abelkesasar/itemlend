@@ -7,43 +7,6 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     exit;
 }
 
-// ── Handle DELETE ──────────────────────────────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_item_id'])) {
-    $item_id = (int) $_POST['delete_item_id'];
-
-    if ($item_id > 0) {
-        // Cek transaksi aktif di tabel rentals
-        $cek = $conn->prepare("SELECT id FROM rentals WHERE item_id = ? AND status_pinjam = 'sedang_dipinjam' LIMIT 1");
-        $cek->execute([$item_id]);
-
-        if ($cek->fetch()) {
-            $delete_error = 'Barang sedang dalam transaksi aktif dan tidak dapat dihapus.';
-        } else {
-            // Ambil data gambar sebelum dihapus
-            $row = $conn->prepare("SELECT gambar FROM items WHERE id = ?");
-            $row->execute([$item_id]);
-            $data = $row->fetch(PDO::FETCH_ASSOC);
-
-            // Hapus record
-            $del = $conn->prepare("DELETE FROM items WHERE id = ?");
-            $del->execute([$item_id]);
-
-            // Hapus file gambar
-            if ($data && !empty($data['gambar'])) {
-                $gambar_list = json_decode($data['gambar'], true);
-                $files = is_array($gambar_list) ? $gambar_list : [$data['gambar']];
-                foreach ($files as $file) {
-                    $path = "../uploads/" . basename($file);
-                    if (file_exists($path)) unlink($path);
-                }
-            }
-
-            $delete_success = 'Barang berhasil dihapus.';
-        }
-    }
-}
-// ──────────────────────────────────────────────────────────────────────────
-
 // Filter & search
 $search   = trim($_GET['search'] ?? '');
 $sort     = $_GET['sort'] ?? 'terbaru';
@@ -75,7 +38,6 @@ $stmt->execute($params);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 $total_items   = $conn->query("SELECT COUNT(*) FROM items")->fetchColumn();
-$pending_users = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
 $pending_users = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
 $pending_items = $conn->query("SELECT COUNT(*) FROM items WHERE status='pending'")->fetchColumn();
 
@@ -139,20 +101,6 @@ $avatar_colors = [
 
         /* ── Content ── */
         .content { padding: 24px 28px; }
-
-        /* ── Toast notif ── */
-        .toast {
-            margin-bottom: 16px;
-            padding: 12px 16px;
-            border-radius: 10px;
-            font-size: 13px;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .toast.success { background: #e9f9f0; color: #1a7a46; border: 1px solid #bbf7d0; }
-        .toast.error   { background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; }
 
         /* ── Toolbar ── */
         .toolbar {
@@ -255,24 +203,13 @@ $avatar_colors = [
         .owner-name { font-size: 12px; font-weight: 500; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
         .item-date { font-size: 11px; color: #9ca3af; white-space: nowrap; }
 
-        /* Delete button */
+        /* Footer */
         .item-footer {
             border-top: 1px solid #f0f1f3;
             padding: 10px 16px;
-            display: flex; gap: 8px;
         }
-        .btn-del {
-            flex: 1; height: 34px;
-            display: flex; align-items: center; justify-content: center; gap: 6px;
-            border-radius: 8px; font-size: 12.5px; font-weight: 600;
-            cursor: pointer; text-decoration: none;
-            border: 1px solid #fecaca; background: #fff5f5; color: #dc2626;
-            transition: background 0.15s;
-            font-family: inherit;
-        }
-        .btn-del:hover { background: #fee2e2; }
         .btn-detail {
-            flex: 2; height: 34px;
+            width: 100%; height: 34px;
             display: flex; align-items: center; justify-content: center; gap: 6px;
             border-radius: 8px; font-size: 12.5px; font-weight: 600;
             cursor: pointer; text-decoration: none;
@@ -319,12 +256,6 @@ $avatar_colors = [
         <!-- Content -->
         <div class="content">
 
-            <?php if (!empty($delete_success)): ?>
-                <div class="toast success"><i class="ti ti-circle-check"></i> <?= htmlspecialchars($delete_success) ?></div>
-            <?php elseif (!empty($delete_error)): ?>
-                <div class="toast error"><i class="ti ti-alert-circle"></i> <?= htmlspecialchars($delete_error) ?></div>
-            <?php endif; ?>
-
             <!-- Toolbar -->
             <form method="GET" action="">
                 <div class="toolbar">
@@ -346,29 +277,27 @@ $avatar_colors = [
                     <button type="submit" style="display:none"></button>
                     <span class="count-pill"><?= count($items) ?> barang</span>
                     <a href="barangapproval.php" style="
-    display:inline-flex; align-items:center; gap:7px;
-    height:40px; padding:0 16px;
-    background:#fff7e6; color:#cc7a00;
-    border:1px solid #fed7aa;
-    border-radius:10px;
-    font-size:13px; font-weight:600;
-    text-decoration:none;
-    white-space:nowrap;
-    transition:background 0.15s;
-" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff7e6'">
-    <i class="ti ti-clock" style="font-size:16px"></i>
-    Approval Barang
-    <?php if ($pending_items > 0): ?>
-        <span style="
-            background:#cc7a00; color:#fff;
-            font-size:11px; font-weight:700;
-            padding:2px 7px; border-radius:20px;
-            line-height:1.4;
-        "><?= $pending_items ?></span>
-    <?php endif; ?>
-</a>
-
-
+                        display:inline-flex; align-items:center; gap:7px;
+                        height:40px; padding:0 16px;
+                        background:#fff7e6; color:#cc7a00;
+                        border:1px solid #fed7aa;
+                        border-radius:10px;
+                        font-size:13px; font-weight:600;
+                        text-decoration:none;
+                        white-space:nowrap;
+                        transition:background 0.15s;
+                    " onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff7e6'">
+                        <i class="ti ti-clock" style="font-size:16px"></i>
+                        Approval Barang
+                        <?php if ($pending_items > 0): ?>
+                            <span style="
+                                background:#cc7a00; color:#fff;
+                                font-size:11px; font-weight:700;
+                                padding:2px 7px; border-radius:20px;
+                                line-height:1.4;
+                            "><?= $pending_items ?></span>
+                        <?php endif; ?>
+                    </a>
                 </div>
             </form>
 
@@ -390,35 +319,26 @@ $avatar_colors = [
                     <div class="item-card">
                         <div class="item-thumb">
                             <?php
-$gambar = null;
-
-if (!empty($item['gambar'])) {
-
-    $gambar_list = json_decode($item['gambar'], true);
-
-    if (is_array($gambar_list) && !empty($gambar_list[0])) {
-
-        $first_image = $gambar_list[0];
-
-        if (file_exists("../uploads/" . $first_image)) {
-            $gambar = "../uploads/" . $first_image;
-        }
-
-    } else {
-
-        // support gambar lama
-        if (file_exists("../uploads/" . $item['gambar'])) {
-            $gambar = "../uploads/" . $item['gambar'];
-        }
-    }
-}
-?>
-
-<?php if ($gambar): ?>
-    <img src="<?= htmlspecialchars($gambar) ?>" alt="<?= htmlspecialchars($item['nama_barang']) ?>">
-<?php else: ?>
-    <i class="ti <?= $icon ?> placeholder-icon"></i>
-<?php endif; ?>
+                            $gambar = null;
+                            if (!empty($item['gambar'])) {
+                                $gambar_list = json_decode($item['gambar'], true);
+                                if (is_array($gambar_list) && !empty($gambar_list[0])) {
+                                    $first_image = $gambar_list[0];
+                                    if (file_exists("../uploads/" . $first_image)) {
+                                        $gambar = "../uploads/" . $first_image;
+                                    }
+                                } else {
+                                    if (file_exists("../uploads/" . $item['gambar'])) {
+                                        $gambar = "../uploads/" . $item['gambar'];
+                                    }
+                                }
+                            }
+                            ?>
+                            <?php if ($gambar): ?>
+                                <img src="<?= htmlspecialchars($gambar) ?>" alt="<?= htmlspecialchars($item['nama_barang']) ?>">
+                            <?php else: ?>
+                                <i class="ti <?= $icon ?> placeholder-icon"></i>
+                            <?php endif; ?>
                             <span class="price-badge"><?= $harga ?></span>
                         </div>
 
@@ -439,12 +359,6 @@ if (!empty($item['gambar'])) {
                         </div>
 
                         <div class="item-footer">
-                            <form method="POST" action="" onsubmit="return confirm('Hapus barang ini?')">
-                                <input type="hidden" name="delete_item_id" value="<?= $item['id'] ?>">
-                                <button type="submit" class="btn-del">
-                                    <i class="ti ti-trash" style="font-size:15px"></i> Hapus
-                                </button>
-                            </form>
                             <a href="../index.php?page=detail&id=<?= $item['id'] ?>" class="btn-detail">
                                 <i class="ti ti-eye" style="font-size:15px"></i> Detail
                             </a>
