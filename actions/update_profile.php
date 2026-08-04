@@ -14,6 +14,13 @@ $nomor_wa = $_POST['nomor_wa'];
 $alamat   = $_POST['alamat'];
 $deskripsi_vendor = $_POST['deskripsi_vendor'] ?? null;
 
+// Metode pembayaran — semua opsi (QRIS, BRI, Mandiri, BCA, GoPay, ShopeePay, DANA)
+// disimpan sebagai kategori 'ewallet', dibedakan lewat nama_penyedia
+$nama_penyedia         = trim($_POST['nama_penyedia'] ?? '');
+$nomor_rekening        = trim($_POST['nomor_rekening'] ?? '');
+$nama_pemilik_rekening = trim($_POST['nama_pemilik_rekening'] ?? '');
+$metode_pembayaran     = $nama_penyedia !== '' ? 'ewallet' : null;
+
 // Ambil data lama dulu (buat foto & password default)
 $stmt = $conn->prepare("SELECT foto_profil, password FROM users WHERE id = ?");
 $stmt->execute([$id]);
@@ -35,10 +42,15 @@ if (!empty($_POST['password'])) {
 
 $stmt = $conn->prepare("
     UPDATE users
-    SET username = ?, email = ?, nomor_wa = ?, alamat = ?, deskripsi_vendor = ?, foto_profil = ?, password = ?
+    SET username = ?, email = ?, nomor_wa = ?, alamat = ?, deskripsi_vendor = ?, foto_profil = ?, password = ?,
+        metode_pembayaran = ?, nama_penyedia = ?, nomor_rekening = ?, nama_pemilik_rekening = ?
     WHERE id = ?
 ");
-$stmt->execute([$username, $email, $nomor_wa, $alamat, $deskripsi_vendor, $foto_profil, $password, $id]);
+$stmt->execute([
+    $username, $email, $nomor_wa, $alamat, $deskripsi_vendor, $foto_profil, $password,
+    $metode_pembayaran, $nama_penyedia, $nomor_rekening, $nama_pemilik_rekening,
+    $id
+]);
 
 $_SESSION['username'] = $username;
 

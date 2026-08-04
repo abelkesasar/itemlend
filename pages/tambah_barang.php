@@ -5,8 +5,18 @@ if (!isset($_SESSION['user'])) {
     echo "<script>window.location='index.php?page=login';</script>";
     exit;
 }
-?>
 
+// Cek dulu apakah user sudah punya metode pembayaran lengkap.
+// Kalau belum, arahkan ke profile.php buat melengkapinya dulu.
+$stmtPay = $conn->prepare("SELECT metode_pembayaran, nama_penyedia, nomor_rekening, nama_pemilik_rekening FROM users WHERE id = ?");
+$stmtPay->execute([$_SESSION['user']]);
+$payInfo = $stmtPay->fetch(PDO::FETCH_ASSOC);
+
+if (empty($payInfo['metode_pembayaran']) || empty($payInfo['nomor_rekening']) || empty($payInfo['nama_pemilik_rekening'])) {
+    echo "<script>window.location='index.php?page=profile&need_payment=1';</script>";
+    exit;
+}
+?>
 <style>
     .tb-wrap {
         max-width: 680px; margin: 0 auto; padding: 8px 0 60px;

@@ -11,6 +11,17 @@ $me = $stmt->fetch(PDO::FETCH_ASSOC);
 $foto = (!empty($me['foto_profil']) && file_exists("uploads/" . $me['foto_profil']))
     ? "uploads/" . $me['foto_profil']
     : "https://ui-avatars.com/api/?name=" . urlencode($me['username']) . "&background=3d4bff&color=fff&size=120";
+
+$providerOptions = ['QRIS', 'BRI', 'Mandiri', 'BCA', 'GoPay', 'ShopeePay', 'DANA'];
+$providerLabels = [
+    'QRIS'      => 'QRIS',
+    'BRI'       => 'Transfer BRI',
+    'Mandiri'   => 'Transfer Mandiri',
+    'BCA'       => 'Transfer BCA',
+    'GoPay'     => 'GoPay',
+    'ShopeePay' => 'ShopeePay',
+    'DANA'      => 'DANA',
+];
 ?>
 
 <style>
@@ -25,6 +36,9 @@ $foto = (!empty($me['foto_profil']) && file_exists("uploads/" . $me['foto_profil
         padding: 12px 16px; border-radius: 10px; font-size: 13.5px;
         font-weight: 500; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;
     }
+    .profile-alert.warn {
+        background: #fff7e6; border: 1px solid #fed7aa; color: #92400e;
+    }
     .profile-avatar-box { text-align: center; margin-bottom: 24px; }
     .profile-avatar-box img {
         width: 96px; height: 96px; border-radius: 50%; object-fit: cover;
@@ -38,13 +52,13 @@ $foto = (!empty($me['foto_profil']) && file_exists("uploads/" . $me['foto_profil
     .profile-group label {
         display: block; font-size: 12.5px; font-weight: 600; color: #374151; margin-bottom: 5px;
     }
-    .profile-group input, .profile-group textarea {
+    .profile-group input, .profile-group textarea, .profile-group select {
         width: 100%; border: 1.5px solid #e5e7eb; border-radius: 10px;
         padding: 10px 14px; font-family: 'Plus Jakarta Sans', sans-serif;
         font-size: 13.5px; color: #1a1d2e; outline: none;
         transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .profile-group input:focus, .profile-group textarea:focus {
+    .profile-group input:focus, .profile-group textarea:focus, .profile-group select:focus {
         border-color: #3d4bff; box-shadow: 0 0 0 3px rgba(61,75,255,0.1);
     }
     .profile-group textarea { resize: none; }
@@ -57,6 +71,12 @@ $foto = (!empty($me['foto_profil']) && file_exists("uploads/" . $me['foto_profil
         display: flex; align-items: center; justify-content: center; gap: 8px;
     }
     .profile-submit:hover { background: #2c38d4; }
+    .profile-section-label {
+        font-size: 11px; font-weight: 700; color: #9ca3af;
+        text-transform: uppercase; letter-spacing: 0.08em;
+        margin: 24px 0 14px; display: flex; align-items: center; gap: 8px;
+    }
+    .profile-section-label::after { content: ''; flex: 1; height: 1px; background: #f0f1f3; }
 </style>
 
 <div class="profile-wrap">
@@ -65,6 +85,12 @@ $foto = (!empty($me['foto_profil']) && file_exists("uploads/" . $me['foto_profil
     <?php if (isset($_GET['success'])): ?>
         <div class="profile-alert">
             <i class="ti ti-circle-check"></i> Profil berhasil diperbarui!
+        </div>
+    <?php endif; ?>
+
+    <?php if (isset($_GET['need_payment'])): ?>
+        <div class="profile-alert warn">
+            <i class="ti ti-alert-triangle"></i> Lengkapi metode pembayaran dulu sebelum bisa mendaftarkan barang.
         </div>
     <?php endif; ?>
 
@@ -102,6 +128,33 @@ $foto = (!empty($me['foto_profil']) && file_exists("uploads/" . $me['foto_profil
                 <textarea name="deskripsi_vendor" rows="2"><?= htmlspecialchars($me['deskripsi_vendor'] ?? '') ?></textarea>
             </div>
             <?php endif; ?>
+
+            <!-- METODE PEMBAYARAN -->
+            <div class="profile-section-label">Metode Pembayaran</div>
+
+            <div class="profile-group">
+                <label>Jenis Metode</label>
+                <select name="nama_penyedia" required>
+                    <option value="">-- Pilih Metode Pembayaran --</option>
+                    <?php foreach ($providerOptions as $opt): ?>
+                        <option value="<?= $opt ?>" <?= ($me['nama_penyedia'] ?? '') === $opt ? 'selected' : '' ?>>
+                            <?= $providerLabels[$opt] ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="profile-group">
+                <label>Nomor Rekening / No. HP / ID QRIS</label>
+                <input type="text" name="nomor_rekening" value="<?= htmlspecialchars($me['nomor_rekening'] ?? '') ?>"
+                       placeholder="contoh: 1234567890" required>
+            </div>
+
+            <div class="profile-group">
+                <label>Nama Pemilik Rekening/Akun</label>
+                <input type="text" name="nama_pemilik_rekening" value="<?= htmlspecialchars($me['nama_pemilik_rekening'] ?? '') ?>"
+                       placeholder="contoh: Danil Saputra" required>
+            </div>
 
             <div class="profile-group">
                 <label>Password Baru <span class="profile-hint">(kosongkan jika tidak ingin ganti)</span></label>
