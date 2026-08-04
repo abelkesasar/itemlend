@@ -1,7 +1,5 @@
 <?php
-$conn = new PDO("mysql:host=localhost;dbname=itemlend", "root", "");
-$conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-$host = "localhost";
+$host = "localhost"; // <-- Sudah diubah menjadi localhost
 $db   = "itemlend";
 $user = "root";
 $pass = "";
@@ -12,3 +10,4 @@ try {
 } catch(PDOException $e) {
     die("Koneksi gagal: " . $e->getMessage());
 }
+?>
