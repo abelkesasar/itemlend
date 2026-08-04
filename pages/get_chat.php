@@ -11,22 +11,20 @@ if (!isset($_SESSION['user'])) {
 }
 
 $my_id       = $_SESSION['user'];
-$item_id     = isset($_GET['item_id']) ? (int)$_GET['item_id'] : 0;
 $receiver_id = isset($_GET['receiver_id']) ? (int)$_GET['receiver_id'] : 0;
 
-if (!$item_id || !$receiver_id) {
+if (!$receiver_id) {
     http_response_code(400);
-    echo json_encode(['success' => false, 'message' => 'item_id dan receiver_id wajib diisi']);
+    echo json_encode(['success' => false, 'message' => 'receiver_id wajib diisi']);
     exit;
 }
 
 $stmt = $conn->prepare(
-    "SELECT id, sender_id, receiver_id, pesan, created_at FROM chats
-     WHERE item_id = ?
-       AND ((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?))
-     ORDER BY created_at ASC"
+    "SELECT id, sender_id, receiver_id, item_id, pesan, type, created_at FROM chats
+     WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)
+     ORDER BY created_at ASC, id ASC"
 );
-$stmt->execute([$item_id, $my_id, $receiver_id, $receiver_id, $my_id]);
+$stmt->execute([$my_id, $receiver_id, $receiver_id, $my_id]);
 $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 foreach ($messages as &$m) {

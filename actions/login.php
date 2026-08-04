@@ -19,10 +19,43 @@ if ($user['password'] != $password) {
     exit;
 }
 
-// ✅ CEK STATUS APPROVAL — admin selalu boleh masuk
-if ($user['role'] !== 'admin' && $user['status'] === 'pending') {
-    echo "<script>alert('Akun kamu masih menunggu persetujuan admin. Silakan tunggu ya!'); window.location='../index.php?page=login';</script>";
-    exit;
+// ✅ CEK STATUS — admin selalu boleh masuk
+if ($user['role'] !== 'admin') {
+
+    // Status: pending
+    if ($user['status'] === 'pending') {
+        echo "<script>alert('Akun kamu masih menunggu persetujuan admin. Silakan tunggu ya!'); window.location='../index.php?page=login';</script>";
+        exit;
+    }
+
+    // Status: cooldown
+    if ($user['status'] === 'cooldown') {
+
+        $now = new DateTime();
+        $bannedUntil = $user['banned_until'] ? new DateTime($user['banned_until']) : null;
+
+        if ($bannedUntil && $now < $bannedUntil) {
+            // Masih dalam masa cooldown → hitung sisa waktunya
+            $diff = $now->diff($bannedUntil);
+
+            $sisa = [];
+            if ($diff->d > 0) $sisa[] = $diff->d . ' hari';
+            if ($diff->h > 0) $sisa[] = $diff->h . ' jam';
+            if ($diff->i > 0) $sisa[] = $diff->i . ' menit';
+            if (empty($sisa)) $sisa[] = 'kurang dari 1 menit';
+
+            $sisaText = implode(' ', $sisa);
+
+            echo "<script>alert('Akun kamu sedang terkena cooldown. Sisa waktu: {$sisaText} lagi.'); window.location='../index.php?page=login';</script>";
+            exit;
+
+        } else {
+            // Cooldown sudah lewat → otomatis pulihkan status jadi approved
+            $update = $conn->prepare("UPDATE users SET status = 'approved', banned_until = NULL WHERE id = ?");
+            $update->execute([$user['id']]);
+            $user['status'] = 'approved';
+        }
+    }
 }
 
 $_SESSION['user']     = $user['id'];
