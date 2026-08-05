@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'register_screen.dart';
+import 'tambah_barang_screen.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -74,6 +76,49 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen()));
   }
 
+  /// Dipanggil dari tombol hero "Daftarkan Barangmu" & navbar "Jual/Sewa".
+  /// Kalau belum login -> Register. Kalau sudah login, cek dulu kelengkapan
+  /// metode pembayaran: belum lengkap -> ke Profil, sudah lengkap -> ke Tambah Barang.
+  Future<void> _goToJualSewa() async {
+    if (!_isLoggedIn) {
+      _goToRegister();
+      return;
+    }
+
+    final profileResult = await ApiService.getProfile();
+
+    if (!mounted) return;
+
+    if (profileResult['success'] != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(profileResult['message'] ?? 'Gagal memuat profil.')),
+      );
+      return;
+    }
+
+    final metodeLengkap = profileResult['data']?['metode_pembayaran_lengkap'] ?? false;
+
+    dynamic result;
+    if (!metodeLengkap) {
+      result = await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ProfileScreen()),
+      );
+    } else {
+      result = await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const TambahBarangScreen()),
+      );
+    }
+
+    if (!mounted) return;
+
+    // TambahBarangScreen / ProfileScreen pop dengan `true` kalau barang berhasil ditambahkan -> refresh list
+    if (result == true) {
+      _loadItems();
+    }
+  }
+
   String _formatHarga(int harga) {
     return 'Rp${harga.toString().replaceAllMapped(
       RegExp(r'(\d)(?=(\d{3})+(?!\d))'),
@@ -128,6 +173,11 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         actions: [
           if (_isLoggedIn) ...[
+            TextButton.icon(
+              onPressed: _goToJualSewa,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Jual/Sewa'),
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               child: Center(child: Text('Halo, ${_userData['username'] ?? ''}')),
@@ -141,6 +191,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ],
       ),
+      floatingActionButton: _isLoggedIn
+          ? FloatingActionButton.extended(
+              onPressed: _goToJualSewa,
+              icon: const Icon(Icons.add),
+              label: const Text('Jual/Sewa'),
+            )
+          : null,
       body: RefreshIndicator(
         onRefresh: _loadItems,
         child: _isLoading && _items.isEmpty
@@ -195,8 +252,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     backgroundColor: Colors.white,
                     foregroundColor: const Color(0xFF6366F1),
                   ),
-                  onPressed: _isLoggedIn ? null : _goToRegister,
-                  child: const Text('Mulai Sekarang'),
+                  onPressed: _goToJualSewa,
+                  child: const Text('Daftarkan Barangmu'),
                 ),
               ),
               const SizedBox(width: 12),

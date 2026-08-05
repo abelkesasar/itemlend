@@ -11,7 +11,7 @@
  * Files  : gambar[] (bisa lebih dari 1 foto, field name harus 'gambar[]' di Flutter)
  */
 
-require 'auth_middleware.php'; // udah include db.php + validasi token, hasilnya ada di $user
+require 'api_auth_middleware.php'; // udah include db.php + validasi token, hasilnya ada di $user
 
 function respond(array $data, int $code = 200) {
     http_response_code($code);
