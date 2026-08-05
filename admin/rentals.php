@@ -7,61 +7,81 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     exit;
 }
 
-// ── Handle POST: cairkan dana
+// ── Handle POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $rental_id = (int) ($_POST['rental_id'] ?? 0);
     $aksi      = $_POST['aksi'] ?? '';
 
-    if ($rental_id > 0 && $aksi === 'cairkan_dana') {
+    if ($rental_id > 0) {
 
-        // Ambil data rental untuk hitung nominal
-        $rent = $conn->prepare("
-            SELECT r.total_harga, r.tanggal_mulai, r.tanggal_selesai, i.harga
-            FROM rentals r
-            JOIN items i ON r.item_id = i.id
-            WHERE r.id = ?
-        ");
-        $rent->execute([$rental_id]);
-        $rd = $rent->fetch(PDO::FETCH_ASSOC);
-
-        if ($rd) {
-            $dur       = (int) ((strtotime($rd['tanggal_selesai']) - strtotime($rd['tanggal_mulai'])) / 86400);
-            $tot       = $rd['total_harga'] ?: ($dur * $rd['harga']);
-            $komisi    = (int) round($tot * 0.05);
-            $dicairkan = $tot - $komisi;
-        } else {
-            $komisi    = 0;
-            $dicairkan = 0;
+        // ── Konfirmasi pembayaran (penyewa → admin)
+        if ($aksi === 'konfirmasi_bayar') {
+            $conn->prepare("
+                UPDATE rentals
+                SET status_pembayaran = 'lunas',
+                    paid_at           = NOW()
+                WHERE id = ? AND status_pembayaran = 'menunggu_konfirmasi'
+            ")->execute([$rental_id]);
         }
 
-        if (!empty($_FILES['bukti_pencairan']['name']) && $_FILES['bukti_pencairan']['error'] === 0) {
-            $ext     = strtolower(pathinfo($_FILES['bukti_pencairan']['name'], PATHINFO_EXTENSION));
-            $allowed = ['jpg', 'jpeg', 'png', 'pdf'];
-            if (in_array($ext, $allowed)) {
-                $bukti_file = 'pencairan_' . $rental_id . '_' . time() . '.' . $ext;
-                $dest       = '../uploads/bukti/' . $bukti_file;
-                if (move_uploaded_file($_FILES['bukti_pencairan']['tmp_name'], $dest)) {
-                    $conn->prepare("
-                        UPDATE rentals
-                        SET status_pencairan  = 'sudah_dicairkan',
-                            bukti_pencairan   = ?,
-                            tanggal_pencairan = NOW(),
-                            komisi_admin      = ?,
-                            jumlah_dicairkan  = ?
-                        WHERE id = ?
-                    ")->execute([$bukti_file, $komisi, $dicairkan, $rental_id]);
+        // ── Tolak pembayaran
+        elseif ($aksi === 'tolak_bayar') {
+            $catatan = trim($_POST['catatan'] ?? '');
+            $conn->prepare("
+                UPDATE rentals
+                SET status_pembayaran = 'ditolak',
+                    catatan_admin     = ?
+                WHERE id = ? AND status_pembayaran = 'menunggu_konfirmasi'
+            ")->execute([$catatan, $rental_id]);
+        }
+
+        // ── Cairkan dana (admin → pemilik barang)
+        elseif ($aksi === 'cairkan_dana') {
+            $rent = $conn->prepare("
+                SELECT r.total_harga, r.tanggal_mulai, r.tanggal_selesai, i.harga
+                FROM rentals r
+                JOIN items i ON r.item_id = i.id
+                WHERE r.id = ?
+            ");
+            $rent->execute([$rental_id]);
+            $rd = $rent->fetch(PDO::FETCH_ASSOC);
+
+            if ($rd) {
+                $dur       = (int) ((strtotime($rd['tanggal_selesai']) - strtotime($rd['tanggal_mulai'])) / 86400);
+                $tot       = $rd['total_harga'] ?: ($dur * $rd['harga']);
+                $komisi    = (int) round($tot * 0.05);
+                $dicairkan = $tot - $komisi;
+            } else {
+                $komisi    = 0;
+                $dicairkan = 0;
+            }
+
+            if (!empty($_FILES['bukti_pencairan']['name']) && $_FILES['bukti_pencairan']['error'] === 0) {
+                $ext     = strtolower(pathinfo($_FILES['bukti_pencairan']['name'], PATHINFO_EXTENSION));
+                $allowed = ['jpg', 'jpeg', 'png', 'pdf'];
+                if (in_array($ext, $allowed)) {
+                    $bukti_file = 'pencairan_' . $rental_id . '_' . time() . '.' . $ext;
+                    $dest       = '../uploads/bukti/' . $bukti_file;
+                    if (move_uploaded_file($_FILES['bukti_pencairan']['tmp_name'], $dest)) {
+                        $conn->prepare("
+                            UPDATE rentals
+                            SET status_pencairan  = 'sudah_dicairkan',
+                                bukti_pencairan   = ?,
+                                tanggal_pencairan = NOW(),
+                                komisi_admin      = ?,
+                                jumlah_dicairkan  = ?
+                            WHERE id = ?
+                        ")->execute([$bukti_file, $komisi, $dicairkan, $rental_id]);
+                    }
                 }
             }
         }
     }
 
-    $tab = $_GET['tab'] ?? 'belum';
-    header("Location: pencairan.php?tab=$tab");
+    $tab = $_GET['tab'] ?? 'semua';
+    header("Location: rentals.php?tab=$tab");
     exit;
 }
-
-// ── Stats
-// ... sisa kode tidak berubah
 
 // ── Stats
 $pending_users       = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
@@ -241,7 +261,7 @@ $av_colors = [
         .rc-cell-val   { font-size: 13px; font-weight: 600; color: #1a1d2e; display: flex; align-items: center; gap: 6px; }
         .av-mini { width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 800; }
 
-        /* Status pinjam tracker (readonly di admin) */
+        /* Status pinjam tracker */
         .rc-pinjam-track {
             padding: 10px 18px; border-bottom: 1px solid #f0f1f3;
             background: #f8f9fb;
@@ -424,42 +444,45 @@ $av_colors = [
                     <span class="result-count"><?= count($rentals) ?> transaksi</span>
                 </div>
             </form>
-<div class="export-bar">
-    <div class="export-bar-label">
-        <i class="ti ti-file-spreadsheet"></i> Export Laporan
-    </div>
-    <div class="export-sep"></div>
-    <form method="GET" action="export_laporan.php" target="_blank"
-          style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;">
-        <div class="export-input-wrap">
-            <div class="export-input-group">
-                <label>Dari</label>
-                <input type="date" name="dari" class="export-input"
-                       value="<?= date('Y-m-01') ?>"
-                       max="<?= date('Y-m-d') ?>">
+
+            <!-- Export -->
+            <div class="export-bar">
+                <div class="export-bar-label">
+                    <i class="ti ti-file-spreadsheet"></i> Export Laporan
+                </div>
+                <div class="export-sep"></div>
+                <form method="GET" action="export_laporan.php" target="_blank"
+                      style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;flex:1;">
+                    <div class="export-input-wrap">
+                        <div class="export-input-group">
+                            <label>Dari</label>
+                            <input type="date" name="dari" class="export-input"
+                                   value="<?= date('Y-m-01') ?>"
+                                   max="<?= date('Y-m-d') ?>">
+                        </div>
+                        <div class="export-input-group">
+                            <label>Sampai</label>
+                            <input type="date" name="sampai" class="export-input"
+                                   value="<?= date('Y-m-d') ?>"
+                                   max="<?= date('Y-m-d') ?>">
+                        </div>
+                        <div class="export-input-group">
+                            <label>Status</label>
+                            <select name="status" class="export-input" style="min-width:140px;">
+                                <option value="semua">Semua Status</option>
+                                <option value="lunas">Lunas</option>
+                                <option value="menunggu_konfirmasi">Menunggu Konfirmasi</option>
+                                <option value="pending">Belum Bayar</option>
+                                <option value="ditolak">Ditolak</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-export">
+                        <i class="ti ti-download"></i> Download Excel
+                    </button>
+                </form>
             </div>
-            <div class="export-input-group">
-                <label>Sampai</label>
-                <input type="date" name="sampai" class="export-input"
-                       value="<?= date('Y-m-d') ?>"
-                       max="<?= date('Y-m-d') ?>">
-            </div>
-            <div class="export-input-group">
-                <label>Status</label>
-                <select name="status" class="export-input" style="min-width:140px;">
-                    <option value="semua">Semua Status</option>
-                    <option value="lunas">Lunas</option>
-                    <option value="menunggu_konfirmasi">Menunggu Konfirmasi</option>
-                    <option value="pending">Belum Bayar</option>
-                    <option value="ditolak">Ditolak</option>
-                </select>
-            </div>
-        </div>
-        <button type="submit" class="btn-export">
-            <i class="ti ti-download"></i> Download Excel
-        </button>
-    </form>
-</div>
+
             <!-- Tabs -->
             <div class="tab-bar">
                 <?php
@@ -498,18 +521,20 @@ $av_colors = [
                     $spj  = $r['status_pinjam']     ?? 'belum_mulai';
                     $dur  = (int) ((strtotime($r['tanggal_selesai']) - strtotime($r['tanggal_mulai'])) / 86400);
                     $tot  = $r['total_harga'] ?: ($dur * $r['harga']);
-$g = null;
-if (!empty($r['gambar'])) {
-    $gambar_list = json_decode($r['gambar'], true);
-    if (is_array($gambar_list) && !empty($gambar_list[0])) {
-        $first = $gambar_list[0];
-    } else {
-        $first = $r['gambar']; // fallback format lama
-    }
-    if (file_exists("../uploads/" . $first)) {
-        $g = "../uploads/" . $first;
-    }
-}
+
+                    $g = null;
+                    if (!empty($r['gambar'])) {
+                        $gambar_list = json_decode($r['gambar'], true);
+                        if (is_array($gambar_list) && !empty($gambar_list[0])) {
+                            $first = $gambar_list[0];
+                        } else {
+                            $first = $r['gambar'];
+                        }
+                        if (file_exists("../uploads/" . $first)) {
+                            $g = "../uploads/" . $first;
+                        }
+                    }
+
                     $cp   = $av_colors[abs(crc32($r['penyewa']  ?? '')) % 5];
                     $co   = $av_colors[abs(crc32($r['pemilik']  ?? '')) % 5];
                     $ip   = strtoupper(substr($r['penyewa']  ?? '?', 0, 2));
@@ -534,8 +559,7 @@ if (!empty($r['gambar'])) {
                         default                        => '<span class="sbadge sb-pending"><i class="ti ti-clock"></i> Belum Bayar</span>',
                     };
 
-                    // Step pinjam
-                    $order_pinjam = ['belum_mulai','sedang_dipinjam','selesai'];
+                    $order_pinjam  = ['belum_mulai','sedang_dipinjam','selesai'];
                     $pinjam_labels = ['Belum Mulai','Sedang Berjalan','Selesai'];
                     $pinjam_icons  = ['ti-clock','ti-clock-play','ti-circle-check'];
                     $cur_idx = array_search($spj, $order_pinjam);
@@ -590,7 +614,7 @@ if (!empty($r['gambar'])) {
                         </div>
                     </div>
 
-                    <!-- Tracker status pinjam (readonly, info saja) -->
+                    <!-- Tracker status pinjam -->
                     <?php if ($sp === 'lunas'): ?>
                     <div class="rc-pinjam-track">
                         <span class="rc-pinjam-track-label">Status Pinjam</span>
@@ -645,14 +669,14 @@ if (!empty($r['gambar'])) {
                     </div>
                     <?php endif; ?>
 
-                    <!-- Aksi admin: konfirmasi/tolak pembayaran -->
+                    <!-- Aksi admin -->
                     <div class="rc-footer">
                         <?php if ($sp === 'menunggu_konfirmasi'): ?>
                             <form method="POST" style="display:contents">
                                 <input type="hidden" name="rental_id" value="<?= $r['id'] ?>">
                                 <input type="hidden" name="aksi" value="konfirmasi_bayar">
                                 <button type="submit" class="btn-aksi btn-konfirmasi"
-                                        onclick="return confirm('Konfirmasi pembayaran ini?')">
+                                        onclick="return confirm('Konfirmasi pembayaran rental #<?= str_pad($r['id'],6,'0',STR_PAD_LEFT) ?>?')">
                                     <i class="ti ti-check"></i> Konfirmasi Bayar
                                 </button>
                             </form>

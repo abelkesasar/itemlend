@@ -39,7 +39,6 @@ $items_pending = $conn->query("
 ")->fetchAll(PDO::FETCH_ASSOC);
 
 // ─── Query: Pembayaran pending konfirmasi ─────────────────────────────────────
-// Sesuaikan nama tabel/kolom jika berbeda
 $payments_pending = $conn->query("
     SELECT r.id, r.total_harga, r.bukti_pembayaran, r.created_at,
            r.tanggal_mulai, r.tanggal_selesai,
@@ -53,9 +52,27 @@ $payments_pending = $conn->query("
     ORDER BY r.created_at DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
+// ─── Query: Pencairan pending ─────────────────────────────────────────────────
+$pencairan_pending = $conn->query("
+    SELECT r.id, r.total_harga, r.komisi_admin, r.jumlah_dicairkan,
+           r.tanggal_mulai, r.tanggal_selesai, r.created_at,
+           u.username AS nama_pemilik,
+           u.metode_pembayaran, u.nama_penyedia, u.nomor_rekening,
+           u.nama_pemilik_rekening, u.foto_qris,
+           i.nama_barang,
+           penyewa.username AS nama_penyewa
+    FROM rentals r
+    JOIN items i ON r.item_id = i.id
+    JOIN users u ON i.user_id = u.id
+    JOIN users penyewa ON r.user_id = penyewa.id
+    WHERE r.status_pembayaran = 'lunas'
+      AND r.status_pencairan = 'belum_dicairkan'
+    ORDER BY r.created_at DESC
+")->fetchAll(PDO::FETCH_ASSOC);
+
 // ─── Query: Laporan pending ───────────────────────────────────────────────────
 $reports_pending = $conn->query("
-    SELECT rp.id, rp.type, rp.target_id, rp.reason, rp.detail, rp.created_at,
+    SELECT rp.id, rp.target_id, rp.reason, rp.detail, rp.created_at,
            u.username AS nama_pelapor
     FROM reports rp
     JOIN users u ON rp.reporter_id = u.id
@@ -67,8 +84,9 @@ $reports_pending = $conn->query("
 $c_user    = count($users_pending);
 $c_item    = count($items_pending);
 $c_pay     = count($payments_pending);
+$c_cairkan = count($pencairan_pending);
 $c_report  = count($reports_pending);
-$c_total   = $c_user + $c_item + $c_pay + $c_report;
+$c_total   = $c_user + $c_item + $c_pay + $c_cairkan + $c_report;
 
 // ─── Helper: ambil gambar pertama dari kolom JSON ─────────────────────────────
 function firstImage(string $raw): ?string {
@@ -130,6 +148,7 @@ function firstImage(string $raw): ?string {
             display: flex; gap: 4px;
             border-bottom: 2px solid #e5e7eb;
             margin-bottom: 20px;
+            flex-wrap: wrap;
         }
         .tab-btn {
             display: flex; align-items: center; gap: 7px;
@@ -147,10 +166,11 @@ function firstImage(string $raw): ?string {
             font-size: 10.5px; font-weight: 700;
             padding: 2px 7px; border-radius: 20px; line-height: 1.5;
         }
-        .badge-blue   { background: #eef0ff; color: #3d4bff; }
-        .badge-green  { background: #e9f9f0; color: #1a7a46; }
-        .badge-amber  { background: #fff7e6; color: #cc7a00; }
-        .badge-red    { background: #fee2e2; color: #dc2626; }
+        .badge-blue    { background: #eef0ff; color: #3d4bff; }
+        .badge-green   { background: #e9f9f0; color: #1a7a46; }
+        .badge-amber   { background: #fff7e6; color: #cc7a00; }
+        .badge-purple  { background: #f3e8ff; color: #7c3aed; }
+        .badge-red     { background: #fee2e2; color: #dc2626; }
 
         /* ── Tab panels ── */
         .tab-panel { display: none; }
@@ -171,6 +191,7 @@ function firstImage(string $raw): ?string {
         .notif-card.blue   { border-left-color: #3d4bff; }
         .notif-card.green  { border-left-color: #1a7a46; }
         .notif-card.amber  { border-left-color: #cc7a00; }
+        .notif-card.purple { border-left-color: #7c3aed; }
         .notif-card.red    { border-left-color: #dc2626; }
 
         .notif-icon {
@@ -179,10 +200,11 @@ function firstImage(string $raw): ?string {
             flex-shrink: 0;
         }
         .notif-icon i { font-size: 20px; }
-        .notif-icon.blue  { background: #eef0ff; color: #3d4bff; }
-        .notif-icon.green { background: #e9f9f0; color: #1a7a46; }
-        .notif-icon.amber { background: #fff7e6; color: #cc7a00; }
-        .notif-icon.red   { background: #fee2e2; color: #dc2626; }
+        .notif-icon.blue   { background: #eef0ff; color: #3d4bff; }
+        .notif-icon.green  { background: #e9f9f0; color: #1a7a46; }
+        .notif-icon.amber  { background: #fff7e6; color: #cc7a00; }
+        .notif-icon.purple { background: #f3e8ff; color: #7c3aed; }
+        .notif-icon.red    { background: #fee2e2; color: #dc2626; }
 
         .notif-thumb {
             width: 52px; height: 52px; border-radius: 10px;
@@ -214,6 +236,8 @@ function firstImage(string $raw): ?string {
         }
         .btn-primary { background: #3d4bff; color: #fff; }
         .btn-primary:hover { background: #2c38d4; }
+        .btn-purple { background: #7c3aed; color: #fff; }
+        .btn-purple:hover { background: #6d28d9; }
         .btn-outline-success { background: #fff; color: #1a7a46; border-color: #6ee7b7; }
         .btn-outline-success:hover { background: #e9f9f0; }
         .btn-outline-muted { background: #fff; color: #6b7280; border-color: #d1d5db; }
@@ -289,6 +313,12 @@ function firstImage(string $raw): ?string {
                     <i class="ti ti-credit-card"></i> Konfirmasi Bayar
                     <?php if ($c_pay > 0): ?>
                         <span class="tab-badge badge-amber"><?= $c_pay ?></span>
+                    <?php endif; ?>
+                </button>
+                <button class="tab-btn" onclick="switchTab('cairkan', this)">
+                    <i class="ti ti-building-bank"></i> Pencairan
+                    <?php if ($c_cairkan > 0): ?>
+                        <span class="tab-badge badge-purple"><?= $c_cairkan ?></span>
                     <?php endif; ?>
                 </button>
                 <button class="tab-btn" onclick="switchTab('report', this)">
@@ -406,6 +436,54 @@ function firstImage(string $raw): ?string {
                 <?php endif; ?>
             </div>
 
+            <!-- ══ TAB: PENCAIRAN ════════════════════════════════════════════ -->
+            <div class="tab-panel" id="tab-cairkan">
+                <?php if (empty($pencairan_pending)): ?>
+                    <div class="empty-state">
+                        <i class="ti ti-circle-check" style="color:#1a7a46"></i>
+                        <p>Tidak ada pencairan yang menunggu diproses.</p>
+                    </div>
+                <?php else: ?>
+                    <?php foreach ($pencairan_pending as $cairkan):
+                        $jumlah = $cairkan['jumlah_dicairkan'] > 0
+                            ? $cairkan['jumlah_dicairkan']
+                            : ($cairkan['total_harga'] - $cairkan['komisi_admin']);
+                    ?>
+                    <div class="notif-card purple">
+                        <div class="notif-icon purple"><i class="ti ti-building-bank"></i></div>
+                        <div class="notif-body">
+                            <div class="notif-title"><?= htmlspecialchars($cairkan['nama_pemilik']) ?></div>
+                            <div class="notif-meta">
+                                Barang: <strong><?= htmlspecialchars($cairkan['nama_barang']) ?></strong>
+                                &nbsp;·&nbsp;
+                                Penyewa: <strong><?= htmlspecialchars($cairkan['nama_penyewa']) ?></strong>
+                                &nbsp;·&nbsp;
+                                <strong style="color:#7c3aed">Rp<?= number_format($jumlah, 0, ',', '.') ?></strong>
+                                <br>
+                                <?php if (!empty($cairkan['metode_pembayaran'])): ?>
+                                    <?= ucfirst($cairkan['metode_pembayaran']) ?>:
+                                    <strong><?= htmlspecialchars($cairkan['nama_penyedia'] ?? '') ?></strong>
+                                    <?php if (!empty($cairkan['nomor_rekening'])): ?>
+                                        · <?= htmlspecialchars($cairkan['nomor_rekening']) ?>
+                                        a.n. <?= htmlspecialchars($cairkan['nama_pemilik_rekening'] ?? '') ?>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <span style="color:#dc2626">⚠ Pemilik belum set metode pembayaran</span>
+                                <?php endif; ?>
+                                &nbsp;·&nbsp;
+                                <?= date('d M Y', strtotime($cairkan['tanggal_mulai'])) ?> – <?= date('d M Y', strtotime($cairkan['tanggal_selesai'])) ?>
+                            </div>
+                        </div>
+                        <div class="notif-actions">
+                            <a href="pencairan.php?id=<?= $cairkan['id'] ?>" class="btn btn-purple">
+                                <i class="ti ti-coin" style="font-size:14px"></i> Cairkan
+                            </a>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+
             <!-- ══ TAB: LAPORAN ══════════════════════════════════════════════ -->
             <div class="tab-panel" id="tab-report">
                 <?php if (empty($reports_pending)): ?>
@@ -414,19 +492,12 @@ function firstImage(string $raw): ?string {
                         <p>Tidak ada laporan yang masuk.</p>
                     </div>
                 <?php else: ?>
-                    <?php foreach ($reports_pending as $rp):
-                        [$icon, $label] = match($rp['type']) {
-                            'user'   => ['ti-user-exclamation', 'User'],
-                            'item'   => ['ti-box-seam',         'Barang'],
-                            'rental' => ['ti-calendar-x',       'Rental'],
-                            default  => ['ti-alert-circle',     'Lainnya'],
-                        };
-                    ?>
+                    <?php foreach ($reports_pending as $rp): ?>
                     <div class="notif-card red">
-                        <div class="notif-icon red"><i class="ti <?= $icon ?>"></i></div>
+                        <div class="notif-icon red"><i class="ti ti-flag"></i></div>
                         <div class="notif-body">
                             <div class="notif-title">
-                                Laporan <?= $label ?> #<?= $rp['target_id'] ?>
+                                Laporan Rental #<?= $rp['target_id'] ?>
                             </div>
                             <div class="notif-meta">
                                 Pelapor: <strong><?= htmlspecialchars($rp['nama_pelapor']) ?></strong>

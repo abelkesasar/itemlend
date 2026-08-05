@@ -11,9 +11,11 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
 // POST: proses laporan
 // ──────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $id       = (int) ($_POST['id']      ?? 0);
-    $sanksi   = $_POST['sanksi_option']  ?? 'none';
-    $admin_id = (int) ($_SESSION['user'] ?? 0);
+    $id        = (int) ($_POST['id']           ?? 0);
+    $sanksi    = $_POST['sanksi_option']        ?? 'none';
+    $refund    = $_POST['refund_option']        ?? 'tidak_ada';
+    $catatan   = trim($_POST['catatan_refund']  ?? '');
+    $admin_id  = (int) ($_SESSION['user']       ?? 0);
 
     $allowed_sanksi = [
         'none',
@@ -29,7 +31,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'dismissed',
     ];
 
-    if ($id > 0 && in_array($sanksi, $allowed_sanksi)) {
+    $allowed_refund = ['tidak_ada', 'penyewa', 'pemilik'];
+
+    if ($id > 0 && in_array($sanksi, $allowed_sanksi) && in_array($refund, $allowed_refund)) {
 
         // Ambil data rental dari laporan
         $stmtRep = $conn->prepare("
@@ -51,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $banned_7hari   = date('Y-m-d H:i:s', strtotime('+7 days'));
             $banned_forever = '9999-12-31 23:59:59';
 
-            // Helper: set user cooldown (7 hari) + semua barangnya cooldown + banned_until
+            // Helper: set user cooldown (7 hari) + semua barangnya cooldown
             $setCooldownUser = function(int $uid) use ($conn, $banned_7hari) {
                 $conn->prepare("UPDATE users SET banned_until = ?, status = 'cooldown' WHERE id = ?")
                      ->execute([$banned_7hari, $uid]);
@@ -59,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                      ->execute([$banned_7hari, $uid]);
             };
 
-            // Helper: ban permanen user + semua barangnya cooldown permanen
+            // Helper: ban permanen user + semua barangnya
             $setBannedUser = function(int $uid) use ($conn, $banned_forever) {
                 $conn->prepare("UPDATE users SET banned_until = ?, status = 'cooldown' WHERE id = ?")
                      ->execute([$banned_forever, $uid]);
@@ -71,49 +75,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 case 'penyewa_cooldown':
                     $setCooldownUser($penyewa_id);
                     break;
-
                 case 'pemilik_cooldown':
                     $setCooldownUser($pemilik_id);
                     break;
-
                 case 'penyewa_banned':
                     $setBannedUser($penyewa_id);
                     break;
-
                 case 'pemilik_banned':
                     $setBannedUser($pemilik_id);
                     break;
-
                 case 'keduanya_cooldown':
                     $setCooldownUser($penyewa_id);
                     $setCooldownUser($pemilik_id);
                     break;
-
                 case 'keduanya_banned':
                     $setBannedUser($penyewa_id);
                     $setBannedUser($pemilik_id);
                     break;
-
                 case 'barang_cooldown':
-                    // Hanya barang yang dilaporkan, bukan semua barang pemilik
                     $conn->prepare("UPDATE items SET status = 'cooldown', banned_until = ? WHERE id = ?")
                          ->execute([$banned_7hari, $item_id]);
                     break;
-
                 case 'barang_hapus':
                     $conn->prepare("DELETE FROM items WHERE id = ?")
                          ->execute([$item_id]);
                     break;
-
                 case 'barang_hapus_pemilik_banned':
                     $conn->prepare("DELETE FROM items WHERE id = ?")
                          ->execute([$item_id]);
                     $setBannedUser($pemilik_id);
                     break;
-
                 case 'dismissed':
                     // tidak ada sanksi
                     break;
+            }
+
+            // ── Proses Refund ──────────────────────────────
+            if ($refund !== 'tidak_ada' && $sanksi !== 'dismissed') {
+                $conn->prepare("
+                    UPDATE rentals
+                    SET status_refund  = 'menunggu',
+                        refund_ke      = ?,
+                        catatan_refund = ?,
+                        refund_by      = ?
+                    WHERE id = ?
+                ")->execute([$refund, $catatan ?: null, $admin_id, $rental_id]);
             }
         }
 
@@ -137,15 +143,17 @@ $reports = $conn->query("
     SELECT
         rp.*,
         -- Pelapor (penyewa)
-        us.username   AS penyewa_nama,
-        us.nomor_wa   AS penyewa_wa,
-        us.id         AS penyewa_id,
-        us.status     AS penyewa_status,
+        us.username    AS penyewa_nama,
+        us.nomor_wa    AS penyewa_wa,
+        us.id          AS penyewa_id,
+        us.status      AS penyewa_status,
         us.banned_until AS penyewa_banned_until,
         -- Rental
         rt.item_id,
         rt.tanggal_mulai, rt.tanggal_selesai,
         rt.total_harga, rt.status_pinjam, rt.status_pembayaran,
+        rt.status_refund, rt.refund_ke, rt.refund_at, rt.catatan_refund,
+        rt.status_pencairan,
         -- Item
         it.nama_barang, it.lokasi AS item_lokasi,
         it.status      AS item_status,
@@ -195,6 +203,18 @@ function statusBadge(string $st): string {
         default     => '<span class="badge b-amber"><i class="ti ti-clock"></i>Pending</span>',
     };
 }
+function refundBadge(?string $status, ?string $ke): string {
+    if (!$status || $status === 'tidak_ada') return '';
+    $label = match($ke) {
+        'penyewa' => 'Penyewa',
+        'pemilik' => 'Pemilik',
+        default   => '?',
+    };
+    if ($status === 'menunggu') {
+        return '<span class="badge b-orange"><i class="ti ti-coin-euro"></i>Refund Menunggu → ' . $label . '</span>';
+    }
+    return '<span class="badge b-teal"><i class="ti ti-coin-euro"></i>Refund Selesai → ' . $label . '</span>';
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -238,15 +258,15 @@ a { text-decoration: none; color: inherit; }
 .report-list { display: flex; flex-direction: column; gap: 16px; }
 
 .rcard { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; overflow: hidden; }
-.rcard.is-pending { border-left: 4px solid #f59e0b; }
-.rcard.is-reviewed { border-left: 4px solid #16a34a; }
+.rcard.is-pending   { border-left: 4px solid #f59e0b; }
+.rcard.is-reviewed  { border-left: 4px solid #16a34a; }
 .rcard.is-dismissed { border-left: 4px solid #9ca3af; }
 
 /* Card header */
 .rcard-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; border-bottom: 1px solid #f0f1f3; background: #fafbff; flex-wrap: wrap; gap: 8px; }
 .rcard-id   { font-size: 12px; font-weight: 700; color: #9ca3af; }
 .rcard-date { font-size: 12px; color: #9ca3af; }
-.head-right { display: flex; align-items: center; gap: 10px; }
+.head-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
 /* Card body: 3-column grid */
 .rcard-body { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0; }
@@ -288,16 +308,37 @@ a { text-decoration: none; color: inherit; }
 /* Badges */
 .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; padding: 5px 11px; border-radius: 20px; white-space: nowrap; }
 .badge i { font-size: 12px; }
-.b-green { background: #e9f9f0; color: #1a7a46; border: 1px solid #a7f3d0; }
-.b-amber { background: #fff7e6; color: #a16207; border: 1px solid #fed7aa; }
-.b-gray  { background: #f4f5f7; color: #6b7280; border: 1px solid #d1d5db; }
-.b-red   { background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; }
+.b-green  { background: #e9f9f0; color: #1a7a46; border: 1px solid #a7f3d0; }
+.b-amber  { background: #fff7e6; color: #a16207; border: 1px solid #fed7aa; }
+.b-gray   { background: #f4f5f7; color: #6b7280; border: 1px solid #d1d5db; }
+.b-red    { background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; }
+.b-orange { background: #fff4e6; color: #c2410c; border: 1px solid #fdba74; }
+.b-teal   { background: #e0fdf4; color: #0d7377; border: 1px solid #5eead4; }
 
 /* Status pills */
 .spill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 20px; }
-.sp-cool { background: #fff7e6; color: #a16207; border: 1px solid #fed7aa; }
-.sp-ban  { background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; }
+.sp-cool    { background: #fff7e6; color: #a16207; border: 1px solid #fed7aa; }
+.sp-ban     { background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; }
 .sp-cd-item { background: #e9f9f0; color: #16a34a; border: 1px solid #a7f3d0; margin-top: 4px; display: flex; }
+
+/* ── Refund section ──────────────────────────── */
+.refund-section { margin-top: 14px; border-top: 1px dashed #e5e7eb; padding-top: 12px; }
+.refund-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #9ca3af; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+.refund-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.select-refund { padding: 7px 10px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; font-weight: 600; border: 1px solid #d1d5db; border-radius: 9px; background: #fff; color: #374151; outline: none; cursor: pointer; }
+.select-refund:focus { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.12); }
+.refund-note { width: 100%; padding: 7px 10px; font-family: 'Plus Jakarta Sans', sans-serif; font-size: 12px; border: 1px solid #d1d5db; border-radius: 9px; resize: vertical; outline: none; color: #374151; }
+.refund-note:focus { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.12); }
+.refund-info-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 10px 13px; font-size: 12px; color: #92400e; line-height: 1.5; }
+.refund-info-box strong { display: block; margin-bottom: 3px; }
+
+/* Refund status display (card reviewed) */
+.refund-status-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 10px 14px; margin-top: 8px; }
+.rsb-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #a16207; margin-bottom: 5px; }
+.rsb-row { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: #374151; margin-bottom: 3px; }
+.rsb-row i { font-size: 14px; color: #f59e0b; flex-shrink: 0; }
+.rsb-row.done { color: #1a7a46; }
+.rsb-row.done i { color: #16a34a; }
 
 /* Card footer: sanksi form */
 .rcard-foot { padding: 16px 20px; border-top: 1px solid #f0f1f3; background: #fafbff; }
@@ -409,7 +450,7 @@ a { text-decoration: none; color: inherit; }
             $penyewaPermBan = isBannedPermanent($r['penyewa_banned_until']);
             $pemilikPermBan = isBannedPermanent($r['pemilik_banned_until']);
 
-            // Gambar barang (ambil pertama dari JSON)
+            // Gambar barang
             $itemGambar = null;
             if (!empty($r['item_gambar'])) {
                 $arr = json_decode($r['item_gambar'], true);
@@ -418,6 +459,9 @@ a { text-decoration: none; color: inherit; }
 
             // Bukti laporan
             $buktiUrl = !empty($r['bukti']) ? '../uploads/' . $r['bukti'] : null;
+
+            // Refund sudah dicairkan → tidak bisa direfund ke penyewa lagi
+            $sudahCair = ($r['status_pencairan'] ?? '') === 'sudah_dicairkan';
         ?>
         <div class="rcard <?= $cardClass ?>">
 
@@ -432,13 +476,14 @@ a { text-decoration: none; color: inherit; }
                 </div>
                 <div class="head-right">
                     <?= statusBadge($r['status']) ?>
+                    <?= refundBadge($r['status_refund'], $r['refund_ke']) ?>
                 </div>
             </div>
 
             <!-- Body: 3 kolom -->
             <div class="rcard-body">
 
-                <!-- Kolom 1: Penyewa (Pelapor) & Pemilik -->
+                <!-- Kolom 1: Penyewa & Pemilik -->
                 <div class="rcol">
                     <div class="col-label"><i class="ti ti-user"></i> Penyewa (Pelapor)</div>
                     <div class="person">
@@ -502,6 +547,11 @@ a { text-decoration: none; color: inherit; }
                                     default           => 'Belum Mulai'
                                 } ?>
                             </span>
+                            <?php if ($sudahCair): ?>
+                            <span class="rental-tag" style="background:#e0f2fe;color:#0369a1;">
+                                <i class="ti ti-check" style="font-size:10px;"></i> Dana Cair
+                            </span>
+                            <?php endif; ?>
                         </span>
                     </div>
 
@@ -524,6 +574,31 @@ a { text-decoration: none; color: inherit; }
                     <div style="margin-top:8px;">
                         <img src="<?= htmlspecialchars($itemGambar) ?>" alt="Foto barang"
                              class="bukti-img" onclick="openLb(this.src)" style="max-width:140px;border-radius:8px;">
+                    </div>
+                    <?php endif; ?>
+
+                    <?php
+                    // Tampilkan status refund jika sudah diproses
+                    if (!$isPending && !empty($r['status_refund']) && $r['status_refund'] !== 'tidak_ada'):
+                        $refundDone = $r['status_refund'] === 'selesai';
+                        $refundKe   = match($r['refund_ke']) {
+                            'penyewa' => 'Penyewa (' . htmlspecialchars($r['penyewa_nama']) . ')',
+                            'pemilik' => 'Pemilik (' . htmlspecialchars($r['pemilik_nama']) . ')',
+                            default   => '-',
+                        };
+                    ?>
+                    <div class="refund-status-box">
+                        <div class="rsb-label"><i class="ti ti-coin-euro"></i> Refund</div>
+                        <div class="rsb-row <?= $refundDone ? 'done' : '' ?>">
+                            <i class="ti ti-<?= $refundDone ? 'circle-check' : 'clock' ?>"></i>
+                            <span><?= $refundDone ? 'Selesai' : 'Menunggu diproses' ?> → <?= $refundKe ?></span>
+                        </div>
+                        <?php if (!empty($r['catatan_refund'])): ?>
+                        <div class="rsb-row" style="margin-top:4px;">
+                            <i class="ti ti-notes"></i>
+                            <span><?= htmlspecialchars($r['catatan_refund']) ?></span>
+                        </div>
+                        <?php endif; ?>
                     </div>
                     <?php endif; ?>
                 </div>
@@ -580,11 +655,13 @@ a { text-decoration: none; color: inherit; }
                     </div>
                 </div>
 
-                <!-- Form sanksi -->
+                <!-- Form sanksi + refund -->
                 <form method="POST" onsubmit="return konfirmSanksi(this)">
                     <input type="hidden" name="id" value="<?= $r['id'] ?>">
-                    <div class="foot-inner">
-                        <select name="sanksi_option" class="select-sanksi">
+
+                    <!-- Sanksi -->
+                    <div class="foot-inner" style="margin-bottom:12px;">
+                        <select name="sanksi_option" class="select-sanksi" id="sanksi_<?= $r['id'] ?>">
                             <optgroup label="── Tanpa Sanksi ──">
                                 <option value="none">Selesaikan tanpa Sanksi</option>
                                 <option value="dismissed">Tolak / Batalkan Laporan</option>
@@ -607,6 +684,39 @@ a { text-decoration: none; color: inherit; }
                                 <option value="barang_hapus_pemilik_banned">Hapus Barang + Ban Permanen Pemilik</option>
                             </optgroup>
                         </select>
+                    </div>
+
+                    <!-- Refund section -->
+                    <div class="refund-section">
+                        <div class="refund-title"><i class="ti ti-coin-euro" style="font-size:13px;"></i> Refund (Opsional)</div>
+
+                        <?php if ($sudahCair): ?>
+                        <div class="refund-info-box" style="background:#fff0f0;border-color:#fca5a5;color:#991b1b;">
+                            <strong><i class="ti ti-alert-circle"></i> Dana sudah dicairkan ke pemilik</strong>
+                            Refund ke penyewa harus dilakukan manual oleh admin (minta pemilik kembalikan dana).
+                            Kamu masih bisa menandai refund di sini untuk pencatatan.
+                        </div>
+                        <div style="height:8px;"></div>
+                        <?php else: ?>
+                        <div class="refund-info-box">
+                            <strong><i class="ti ti-info-circle"></i> Mekanisme refund</strong>
+                            Dana masih di admin → refund 100% langsung bisa diproses ke penyewa atau dikembalikan ke pemilik sesuai keputusan.
+                        </div>
+                        <div style="height:8px;"></div>
+                        <?php endif; ?>
+
+                        <div class="refund-row">
+                            <select name="refund_option" class="select-refund" id="refund_<?= $r['id'] ?>">
+                                <option value="tidak_ada">Tidak ada refund</option>
+                                <option value="penyewa">Refund ke Penyewa (<?= htmlspecialchars($r['penyewa_nama']) ?>)</option>
+                                <option value="pemilik">Refund ke Pemilik (<?= htmlspecialchars($r['pemilik_nama'] ?? '-') ?>)</option>
+                            </select>
+                        </div>
+                        <textarea name="catatan_refund" class="refund-note" rows="2"
+                            placeholder="Catatan refund (opsional, misal: nomor rekening tujuan, alasan, dsb.)"></textarea>
+                    </div>
+
+                    <div style="margin-top:12px;">
                         <button type="submit" class="btn btn-primary">
                             <i class="ti ti-send"></i> Terapkan
                         </button>
@@ -650,22 +760,31 @@ function closeLb() {
 }
 
 const sanksiMsg = {
-    none:                    'Selesaikan laporan ini tanpa memberikan sanksi?',
-    dismissed:               'Tolak laporan ini? (tidak ada sanksi yang diberikan)',
-    penyewa_cooldown:        'Berikan cooldown 7 hari kepada penyewa?',
-    penyewa_banned:          '⚠️ Ban PERMANEN penyewa? Tindakan ini tidak dapat dibatalkan.',
-    pemilik_cooldown:        'Berikan cooldown 7 hari kepada pemilik + semua barangnya akan ikut cooldown?',
-    pemilik_banned:          '⚠️ Ban PERMANEN pemilik? Semua barangnya akan ikut dinonaktifkan permanen.',
-    keduanya_cooldown:       'Berikan cooldown 7 hari kepada KEDUA pihak (penyewa & pemilik)?',
-    keduanya_banned:         '⚠️ Ban PERMANEN KEDUA pihak? Tindakan ini tidak dapat dibatalkan.',
-    barang_cooldown:         'Cooldown barang yang dilaporkan selama 7 hari?',
-    barang_hapus:            '⚠️ HAPUS PERMANEN barang yang dilaporkan? Tindakan ini tidak dapat dibatalkan.',
+    none:                        'Selesaikan laporan ini tanpa memberikan sanksi?',
+    dismissed:                   'Tolak laporan ini? (tidak ada sanksi dan tidak ada refund)',
+    penyewa_cooldown:            'Berikan cooldown 7 hari kepada penyewa?',
+    penyewa_banned:              '⚠️ Ban PERMANEN penyewa? Tindakan ini tidak dapat dibatalkan.',
+    pemilik_cooldown:            'Berikan cooldown 7 hari kepada pemilik + semua barangnya akan ikut cooldown?',
+    pemilik_banned:              '⚠️ Ban PERMANEN pemilik? Semua barangnya akan ikut dinonaktifkan permanen.',
+    keduanya_cooldown:           'Berikan cooldown 7 hari kepada KEDUA pihak (penyewa & pemilik)?',
+    keduanya_banned:             '⚠️ Ban PERMANEN KEDUA pihak? Tindakan ini tidak dapat dibatalkan.',
+    barang_cooldown:             'Cooldown barang yang dilaporkan selama 7 hari?',
+    barang_hapus:                '⚠️ HAPUS PERMANEN barang yang dilaporkan? Tindakan ini tidak dapat dibatalkan.',
     barang_hapus_pemilik_banned: '⚠️ HAPUS barang permanen + Ban PERMANEN pemiliknya?',
 };
 
+const refundMsg = {
+    tidak_ada: '',
+    penyewa:   ' + Refund akan dikirim ke PENYEWA.',
+    pemilik:   ' + Refund akan dikembalikan ke PEMILIK.',
+};
+
 function konfirmSanksi(form) {
-    const val = form.querySelector('select[name="sanksi_option"]').value;
-    return confirm(sanksiMsg[val] ?? 'Proses laporan ini?');
+    const sanksi = form.querySelector('select[name="sanksi_option"]').value;
+    const refund = form.querySelector('select[name="refund_option"]').value;
+    const baseMsg = sanksiMsg[sanksi] ?? 'Proses laporan ini?';
+    const refMsg  = refundMsg[refund] ?? '';
+    return confirm(baseMsg + (refund !== 'tidak_ada' ? '\n\n' + refMsg : ''));
 }
 </script>
 </body>
