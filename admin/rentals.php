@@ -7,25 +7,61 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     exit;
 }
 
-// ── Handle aksi POST (konfirmasi/tolak pembayaran)
+// ── Handle POST: cairkan dana
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $rental_id = (int) ($_POST['rental_id'] ?? 0);
     $aksi      = $_POST['aksi'] ?? '';
 
-    if ($rental_id > 0) {
-        if ($aksi === 'konfirmasi_bayar') {
-            $conn->prepare("UPDATE rentals SET status_pembayaran='lunas', paid_at=NOW() WHERE id=?")
-                 ->execute([$rental_id]);
-        } elseif ($aksi === 'tolak_bayar') {
-            $catatan = trim($_POST['catatan'] ?? '');
-            $conn->prepare("UPDATE rentals SET status_pembayaran='ditolak', catatan_admin=? WHERE id=?")
-                 ->execute([$catatan, $rental_id]);
+    if ($rental_id > 0 && $aksi === 'cairkan_dana') {
+
+        // Ambil data rental untuk hitung nominal
+        $rent = $conn->prepare("
+            SELECT r.total_harga, r.tanggal_mulai, r.tanggal_selesai, i.harga
+            FROM rentals r
+            JOIN items i ON r.item_id = i.id
+            WHERE r.id = ?
+        ");
+        $rent->execute([$rental_id]);
+        $rd = $rent->fetch(PDO::FETCH_ASSOC);
+
+        if ($rd) {
+            $dur       = (int) ((strtotime($rd['tanggal_selesai']) - strtotime($rd['tanggal_mulai'])) / 86400);
+            $tot       = $rd['total_harga'] ?: ($dur * $rd['harga']);
+            $komisi    = (int) round($tot * 0.05);
+            $dicairkan = $tot - $komisi;
+        } else {
+            $komisi    = 0;
+            $dicairkan = 0;
+        }
+
+        if (!empty($_FILES['bukti_pencairan']['name']) && $_FILES['bukti_pencairan']['error'] === 0) {
+            $ext     = strtolower(pathinfo($_FILES['bukti_pencairan']['name'], PATHINFO_EXTENSION));
+            $allowed = ['jpg', 'jpeg', 'png', 'pdf'];
+            if (in_array($ext, $allowed)) {
+                $bukti_file = 'pencairan_' . $rental_id . '_' . time() . '.' . $ext;
+                $dest       = '../uploads/bukti/' . $bukti_file;
+                if (move_uploaded_file($_FILES['bukti_pencairan']['tmp_name'], $dest)) {
+                    $conn->prepare("
+                        UPDATE rentals
+                        SET status_pencairan  = 'sudah_dicairkan',
+                            bukti_pencairan   = ?,
+                            tanggal_pencairan = NOW(),
+                            komisi_admin      = ?,
+                            jumlah_dicairkan  = ?
+                        WHERE id = ?
+                    ")->execute([$bukti_file, $komisi, $dicairkan, $rental_id]);
+                }
+            }
         }
     }
-    $tab = $_GET['tab'] ?? 'semua';
-    header("Location: rentals.php?tab=$tab");
+
+    $tab = $_GET['tab'] ?? 'belum';
+    header("Location: pencairan.php?tab=$tab");
     exit;
 }
+
+// ── Stats
+// ... sisa kode tidak berubah
 
 // ── Stats
 $pending_users       = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();

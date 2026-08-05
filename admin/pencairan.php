@@ -66,17 +66,14 @@ $sort   = $_GET['sort'] ?? 'terbaru';
 $where  = [];
 $params = [];
 
-// tab filter
 if ($tab === 'belum') {
     $where[] = "r.status_pinjam = 'selesai' AND r.status_pembayaran = 'lunas' AND r.status_pencairan = 'belum_dicairkan'";
 } elseif ($tab === 'sudah') {
     $where[] = "r.status_pencairan = 'sudah_dicairkan'";
 } else {
-    // semua yang relevan
     $where[] = "(r.status_pinjam = 'selesai' AND r.status_pembayaran = 'lunas')";
 }
 
-// search
 if ($search !== '') {
     $where[]      = "(i.nama_barang LIKE :q OR u.username LIKE :q OR pu.username LIKE :q)";
     $params[':q'] = "%$search%";
@@ -97,7 +94,8 @@ $sql = "
            pu.metode_pembayaran     AS pemilik_metode,
            pu.nama_penyedia         AS pemilik_penyedia,
            pu.nomor_rekening        AS pemilik_rekening,
-           pu.nama_pemilik_rekening AS pemilik_nama_rek
+           pu.nama_pemilik_rekening AS pemilik_nama_rek,
+           pu.foto_qris             AS pemilik_foto_qris
     FROM rentals r
     JOIN items i  ON r.item_id = i.id
     JOIN users u  ON r.user_id = u.id
@@ -230,13 +228,40 @@ a { text-decoration: none; color: inherit; }
 .nominal-val.dicairkan { color: #7c3aed; }
 .nominal-sep { color: #d1d5db; font-size: 18px; }
 
-/* Tujuan transfer (metode pemilik) */
+/* Tujuan transfer — non-QRIS */
 .tujuan-row { padding: 12px 18px; border-bottom: 1px solid #f0f1f3; background: #f5f3ff; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .tujuan-row i { font-size: 18px; color: #7c3aed; flex-shrink: 0; }
 .tujuan-detail { flex: 1; }
 .tujuan-title { font-size: 12px; font-weight: 700; color: #6d28d9; margin-bottom: 2px; }
 .tujuan-val   { font-size: 13.5px; font-weight: 800; color: #1a1d2e; }
 .tujuan-sub   { font-size: 11.5px; color: #6b7280; }
+
+/* QRIS row */
+.qris-row { padding: 14px 18px; border-bottom: 1px solid #f0f1f3; background: #f5f3ff; display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.qris-left { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.qris-title { font-size: 12px; font-weight: 700; color: #6d28d9; display: flex; align-items: center; gap: 6px; }
+.qris-title i { font-size: 16px; }
+.qris-name  { font-size: 14px; font-weight: 800; color: #1a1d2e; margin-top: 2px; }
+.qris-sub   { font-size: 11.5px; color: #6b7280; }
+.qris-img-wrap { flex-shrink: 0; }
+.qris-img {
+    width: 130px; height: 130px;
+    object-fit: contain;
+    border-radius: 10px;
+    border: 2px solid #ddd6fe;
+    background: #fff;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.qris-img:hover { transform: scale(1.03); box-shadow: 0 4px 16px rgba(124,58,237,0.18); }
+.qris-img-label { font-size: 10px; font-weight: 700; color: #7c3aed; text-align: center; margin-top: 5px; letter-spacing: 0.04em; }
+
+/* Lightbox */
+.lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 9999; align-items: center; justify-content: center; }
+.lightbox.active { display: flex; }
+.lightbox img { max-width: 90vw; max-height: 88vh; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.lightbox-close { position: absolute; top: 18px; right: 22px; background: rgba(255,255,255,0.15); color: #fff; border: none; border-radius: 50%; width: 36px; height: 36px; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+.lightbox-close:hover { background: rgba(255,255,255,0.3); }
 
 /* No metode warning */
 .nometode-row { padding: 12px 18px; border-bottom: 1px solid #f0f1f3; background: #fff5f5; display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #dc2626; font-weight: 600; }
@@ -272,6 +297,7 @@ a { text-decoration: none; color: inherit; }
     .pc-body { grid-template-columns: 1fr; }
     .pc-cell { border-right: none; border-bottom: 1px solid #f0f1f3; }
     .content { padding: 16px; }
+    .qris-img { width: 100px; height: 100px; }
 }
 </style>
 </head>
@@ -413,19 +439,32 @@ a { text-decoration: none; color: inherit; }
                     $komisi    = $r['komisi_admin']     ?: (int) round($tot * 0.05);
                     $dicairkan = $r['jumlah_dicairkan']  ?: ($tot - $komisi);
 
+                    // Gambar barang
                     $g = null;
                     if (!empty($r['gambar'])) {
-                        $list = json_decode($r['gambar'], true);
+                        $list  = json_decode($r['gambar'], true);
                         $first = (is_array($list) && !empty($list[0])) ? $list[0] : $r['gambar'];
                         if (file_exists("../uploads/" . $first)) $g = "../uploads/" . $first;
                     }
 
-                    $cp = $av_colors[abs(crc32($r['penyewa'] ?? '')) % 5];
-                    $co = $av_colors[abs(crc32($r['pemilik'] ?? '')) % 5];
-                    $ip = strtoupper(substr($r['penyewa'] ?? '?', 0, 2));
-                    $io = strtoupper(substr($r['pemilik'] ?? '?', 0, 2));
+                    $cp = $av_colors[abs(crc32($r['penyewa']  ?? '')) % 5];
+                    $co = $av_colors[abs(crc32($r['pemilik']  ?? '')) % 5];
+                    $ip = strtoupper(substr($r['penyewa']  ?? '?', 0, 2));
+                    $io = strtoupper(substr($r['pemilik']  ?? '?', 0, 2));
 
-                    $has_metode = !empty($r['pemilik_metode']);
+                    $has_metode  = !empty($r['pemilik_metode']);
+                    $is_qris     = $has_metode
+                                   && strtolower($r['pemilik_penyedia'] ?? '') === 'qris'
+                                   && !empty($r['pemilik_foto_qris']);
+
+                    // Path foto QRIS
+                    $qris_path = null;
+                    if ($is_qris) {
+                        $qris_file = $r['pemilik_foto_qris'];
+                        // File disimpan dengan prefix timestamp di kolom foto_qris (lihat data: '1785854610_qris_...')
+                        $try = "../uploads/" . $qris_file;
+                        if (file_exists($try)) $qris_path = $try;
+                    }
 
                     $badge = $spc === 'sudah_dicairkan'
                         ? '<span class="sbadge sb-dicairkan"><i class="ti ti-circle-check"></i> Sudah Dicairkan</span>'
@@ -434,6 +473,7 @@ a { text-decoration: none; color: inherit; }
                             : '<span class="sbadge sb-nometode"><i class="ti ti-alert-circle"></i> Metode Belum Ada</span>');
 
                     $card_cls = $spc === 'sudah_dicairkan' ? 'done' : 'urgent';
+                    $qris_uid = 'qris_' . $r['id'];
                 ?>
                 <div class="pc-card <?= $card_cls ?>">
 
@@ -501,8 +541,8 @@ a { text-decoration: none; color: inherit; }
                         </div>
                     </div>
 
-                    <!-- Tujuan transfer / sudah dicairkan / no metode -->
                     <?php if ($spc === 'sudah_dicairkan'): ?>
+                    <!-- Sudah dicairkan -->
                     <div class="done-row">
                         <i class="ti ti-circle-check"></i>
                         <div class="done-detail">
@@ -512,7 +552,9 @@ a { text-decoration: none; color: inherit; }
                                 <span><i class="ti ti-calendar"></i> <?= date('d M Y H:i', strtotime($r['tanggal_pencairan'])) ?></span>
                                 <?php endif; ?>
                                 <?php if ($has_metode): ?>
-                                <span><i class="ti ti-credit-card"></i> <?= htmlspecialchars($r['pemilik_penyedia']) ?> — <?= htmlspecialchars($r['pemilik_rekening']) ?></span>
+                                <span><i class="ti ti-credit-card"></i> <?= htmlspecialchars($r['pemilik_penyedia']) ?>
+                                    <?php if (!$is_qris): ?>— <?= htmlspecialchars($r['pemilik_rekening']) ?><?php endif; ?>
+                                </span>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -524,7 +566,47 @@ a { text-decoration: none; color: inherit; }
                         <?php endif; ?>
                     </div>
 
+                    <?php elseif ($is_qris): ?>
+                    <!-- Tujuan transfer: QRIS → tampilkan foto QR -->
+                    <div class="qris-row">
+                        <div class="qris-left">
+                            <div class="qris-title"><i class="ti ti-qrcode"></i> Tujuan Transfer · QRIS</div>
+                            <div class="qris-name"><?= htmlspecialchars($r['pemilik_nama_rek'] ?: $r['pemilik']) ?></div>
+                            <div class="qris-sub">Scan QR di samping untuk transfer</div>
+                        </div>
+                        <div class="qris-img-wrap">
+                            <?php if ($qris_path): ?>
+                                <img
+                                    src="<?= htmlspecialchars($qris_path) ?>"
+                                    alt="QR Code <?= htmlspecialchars($r['pemilik']) ?>"
+                                    class="qris-img"
+                                    onclick="openLightbox('<?= htmlspecialchars($qris_path) ?>')"
+                                    title="Klik untuk perbesar"
+                                >
+                                <div class="qris-img-label">KLIK UNTUK PERBESAR</div>
+                            <?php else: ?>
+                                <div style="width:130px;height:130px;border-radius:10px;border:2px dashed #ddd6fe;background:#f5f3ff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;color:#9ca3af;font-size:12px;text-align:center;padding:8px;">
+                                    <i class="ti ti-photo-off" style="font-size:24px;color:#c4b5fd;"></i>
+                                    File QR tidak ditemukan
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <!-- Form cairkan (QRIS) -->
+                    <form method="POST" enctype="multipart/form-data" class="pc-footer">
+                        <input type="hidden" name="rental_id" value="<?= $r['id'] ?>">
+                        <input type="hidden" name="aksi" value="cairkan_dana">
+                        <label>Bukti transfer:</label>
+                        <input type="file" name="bukti_pencairan" accept=".jpg,.jpeg,.png,.pdf" required>
+                        <button type="submit" class="btn-cairkan"
+                                onclick="return confirm('Konfirmasi: Rp <?= number_format($dicairkan, 0, ',', '.') ?> sudah ditransfer via QRIS ke <?= addslashes($r['pemilik_nama_rek'] ?? $r['pemilik']) ?>?')">
+                            <i class="ti ti-send"></i> Tandai Sudah Dicairkan
+                        </button>
+                    </form>
+
                     <?php elseif ($has_metode): ?>
+                    <!-- Tujuan transfer: Bank / e-wallet non-QRIS -->
                     <div class="tujuan-row">
                         <i class="ti ti-<?= $r['pemilik_metode'] === 'bank' ? 'building-bank' : 'device-mobile' ?>"></i>
                         <div class="tujuan-detail">
@@ -534,7 +616,7 @@ a { text-decoration: none; color: inherit; }
                         </div>
                     </div>
 
-                    <!-- Form cairkan -->
+                    <!-- Form cairkan (non-QRIS) -->
                     <form method="POST" enctype="multipart/form-data" class="pc-footer">
                         <input type="hidden" name="rental_id" value="<?= $r['id'] ?>">
                         <input type="hidden" name="aksi" value="cairkan_dana">
@@ -547,6 +629,7 @@ a { text-decoration: none; color: inherit; }
                     </form>
 
                     <?php else: ?>
+                    <!-- Belum ada metode -->
                     <div class="nometode-row">
                         <i class="ti ti-alert-circle"></i>
                         Pemilik belum setup metode pembayaran — belum bisa dicairkan
@@ -561,5 +644,26 @@ a { text-decoration: none; color: inherit; }
         </div>
     </div>
 </div>
+
+<!-- Lightbox untuk foto QRIS -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()"><i class="ti ti-x"></i></button>
+    <img id="lightbox-img" src="" alt="QR Code">
+</div>
+
+<script>
+function openLightbox(src) {
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox').classList.add('active');
+    document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('active');
+    document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeLightbox();
+});
+</script>
 </body>
-</html> 
+</html>
