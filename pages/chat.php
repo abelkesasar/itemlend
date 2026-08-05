@@ -18,6 +18,11 @@ $stmt = $conn->prepare("SELECT username, foto_profil FROM users WHERE id = ?");
 $stmt->execute([$receiver_id]);
 $seller = $stmt->fetch(PDO::FETCH_ASSOC);
 
+// Resolve foto profil lawan chat — di DB cuma nama file polos, perlu ditambah folder uploads/
+$sellerFoto = (!empty($seller['foto_profil']) && file_exists("uploads/" . $seller['foto_profil']))
+    ? "uploads/" . $seller['foto_profil']
+    : "assets/default-user.png";
+
 function resolveGambarItem($gambarRaw) {
     $default = 'assets/default-item.png';
     if (empty($gambarRaw)) return $default;
@@ -75,7 +80,6 @@ $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
   .chat-item-card .nama { font-size: 13px; font-weight: 600; color: #222; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .chat-item-card .harga { font-size: 13px; color: #6c5ce7; font-weight: 700; margin-top: 2px; }
 
-  /* Kartu lampiran sementara (belum terkirim), muncul di atas kotak input */
   #staged-item-wrap { padding: 0 16px; background: #fff; }
   .staged-item-card {
     display: flex; align-items: center; gap: 10px;
@@ -100,7 +104,7 @@ $messages = $stmt->fetchAll(PDO::FETCH_ASSOC);
 </style>
 
 <div class="chat-header">
-  <img src="<?= htmlspecialchars($seller['foto_profil'] ?? 'assets/default-user.png') ?>" alt="">
+  <img src="<?= htmlspecialchars($sellerFoto) ?>" alt="">
   <div class="title"><?= htmlspecialchars($seller['username'] ?? 'Penjual') ?></div>
 </div>
 
@@ -158,7 +162,6 @@ function scrollToBottom() {
 }
 scrollToBottom();
 
-// Tombol X: batalin lampiran, belum ada apa-apa yang tersimpan di DB jadi cukup dikosongkan di form
 if (removeBtn) {
   removeBtn.addEventListener('click', () => {
     document.getElementById('staged-item-card').remove();
@@ -206,8 +209,6 @@ form.addEventListener('submit', async (e) => {
     const res = await fetch('send_chat.php', { method: 'POST', body: fd });
     const data = await res.json();
     if (data.success) {
-      // Kalau server benar-benar nge-insert kartu barang baru (belum pernah dikirim
-      // sebelumnya di thread ini), tampilkan kartunya dulu
       if (data.item_card) {
         appendItemCard(data.item_card);
         lastCount++;
@@ -216,7 +217,6 @@ form.addEventListener('submit', async (e) => {
       lastCount++;
 
       pesanInput.value = '';
-      // Lampiran cuma dipakai sekali per kunjungan dari detail barang
       if (document.getElementById('staged-item-card')) {
         document.getElementById('staged-item-card').remove();
       }

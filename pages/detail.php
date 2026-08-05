@@ -19,8 +19,18 @@ if (!$item) { echo "Barang tidak ditemukan"; exit; }
 $user_login = $_SESSION['user'] ?? null;
 
 // Gambar
-$gambar = (!empty($item['gambar']) && file_exists("uploads/" . $item['gambar']))
-    ? "uploads/" . $item['gambar'] : null;
+function resolveGambarItem($gambarRaw) {
+    if (empty($gambarRaw)) return null;
+    $list = json_decode($gambarRaw, true);
+    if (is_array($list) && !empty($list[0]) && file_exists("uploads/" . $list[0])) {
+        return "uploads/" . $list[0];
+    }
+    if (!is_array($list) && file_exists("uploads/" . $gambarRaw)) {
+        return "uploads/" . $gambarRaw;
+    }
+    return null;
+}
+$gambar = resolveGambarItem($item['gambar']);
 
 // Avatar warna owner
 $av_colors = [
@@ -68,7 +78,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         }
         a { text-decoration: none; color: inherit; }
 
-        /* ── BREADCRUMB ── */
         .breadcrumb {
             max-width: 1100px; margin: 0 auto;
             padding: 20px 24px 0;
@@ -79,13 +88,11 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         .breadcrumb a:hover { color: var(--brand); }
         .breadcrumb i { font-size: 14px; }
 
-        /* ── MAIN CONTAINER ── */
         .container {
             max-width: 1100px; margin: 0 auto;
             padding: 20px 24px 60px;
         }
 
-        /* ── PRODUCT GRID ── */
         .product-grid {
             display: grid;
             grid-template-columns: 1fr 420px;
@@ -93,7 +100,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
             align-items: start;
         }
 
-        /* ── IMAGE PANEL ── */
         .image-panel {}
         .main-image-wrap {
             border-radius: 20px; overflow: hidden;
@@ -112,7 +118,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         .no-img-placeholder i { font-size: 64px; }
         .no-img-placeholder span { font-size: 14px; font-weight: 500; }
 
-        /* Status badge overlay */
         .status-overlay {
             position: absolute; top: 16px; left: 16px;
             background: var(--green); color: #fff;
@@ -122,7 +127,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         }
         .status-overlay i { font-size: 13px; }
 
-        /* ── INFO CARD ── */
         .info-card {
             background: var(--white);
             border: 1px solid var(--border);
@@ -131,7 +135,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
             position: sticky; top: 20px;
         }
 
-        /* Kategori badge */
         .kategori-badge {
             display: inline-flex; align-items: center; gap: 6px;
             background: var(--brand-soft); color: var(--brand);
@@ -145,7 +148,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
             margin-bottom: 16px; color: var(--text);
         }
 
-        /* Price block */
         .price-block {
             background: linear-gradient(135deg, #f0f4ff, #e8eeff);
             border: 1px solid #c7d0ff;
@@ -159,7 +161,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         }
         .price-unit { font-size: 14px; color: var(--muted); font-weight: 500; margin-top: 4px; }
 
-        /* Meta items */
         .meta-list {
             display: flex; flex-direction: column; gap: 10px;
             margin-bottom: 20px;
@@ -178,10 +179,8 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         .meta-label { color: var(--muted); font-size: 12px; }
         .meta-value { color: var(--text); font-weight: 600; font-size: 13.5px; }
 
-        /* Divider */
         .divider { height: 1px; background: var(--border); margin: 20px 0; }
 
-        /* Owner card */
         .owner-card {
             display: flex; align-items: center; gap: 12px;
             background: var(--bg); border-radius: 12px; padding: 14px;
@@ -204,7 +203,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         }
         .btn-wa:hover { background: #16a34a; }
 
-        /* CTA Buttons */
         .btn-sewa {
             display: flex; align-items: center; justify-content: center; gap: 10px;
             width: 100%; padding: 15px;
@@ -245,7 +243,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         }
         .btn-edit:hover { background: var(--brand-soft); }
 
-        /* Tombol Laporkan */
         .btn-report {
             display: flex; align-items: center; justify-content: center; gap: 8px;
             width: 100%; padding: 11px;
@@ -264,7 +261,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         }
         .safe-note i { font-size: 14px; color: var(--green); }
 
-        /* ── DESCRIPTION SECTION ── */
         .section-card {
             background: var(--white);
             border: 1px solid var(--border);
@@ -283,7 +279,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
             white-space: pre-wrap;
         }
 
-        /* ── OTHER ITEMS ── */
         .other-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -310,7 +305,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         .other-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .other-price { font-size: 12px; color: var(--brand); font-weight: 700; margin-top: 3px; }
 
-        /* ── REPORT MODAL ── */
         .report-modal-overlay {
             display: none;
             position: fixed; inset: 0;
@@ -365,7 +359,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
         }
         .btn-submit-report:hover { background: #b91c1c; }
 
-        /* ── RESPONSIVE ── */
         @media (max-width: 860px) {
             .product-grid { grid-template-columns: 1fr; }
             .info-card { position: static; }
@@ -392,10 +385,8 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
 
     <div class="container">
 
-        <!-- PRODUCT GRID -->
         <div class="product-grid">
 
-            <!-- LEFT: Gambar + Deskripsi -->
             <div>
                 <div class="main-image-wrap">
                     <?php if ($gambar): ?>
@@ -411,7 +402,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
                     </div>
                 </div>
 
-                <!-- Deskripsi -->
                 <div class="section-card">
                     <div class="section-title">
                         <i class="ti ti-file-description"></i> Deskripsi Barang
@@ -419,7 +409,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
                     <p class="description-text"><?= htmlspecialchars($item['deskripsi'] ?? 'Tidak ada deskripsi.') ?></p>
                 </div>
 
-                <!-- Barang lain dari owner -->
                 <?php if (!empty($other_items)): ?>
                 <div class="section-card">
                     <div class="section-title">
@@ -428,7 +417,7 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
                     </div>
                     <div class="other-grid">
                         <?php foreach ($other_items as $o):
-                            $og = (!empty($o['gambar']) && file_exists("uploads/".$o['gambar'])) ? "uploads/".$o['gambar'] : null;
+                            $og = resolveGambarItem($o['gambar']);
                         ?>
                         <a href="?page=detail&id=<?= $o['id'] ?>" class="other-card">
                             <div class="other-thumb">
@@ -449,10 +438,8 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
                 <?php endif; ?>
             </div>
 
-            <!-- RIGHT: Info Card -->
             <div class="info-card">
 
-                <!-- Kategori -->
                 <?php if (!empty($item['kategori'])): ?>
                 <span class="kategori-badge">
                     <i class="ti ti-tag"></i>
@@ -462,13 +449,11 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
 
                 <h1 class="item-title"><?= htmlspecialchars($item['nama_barang']) ?></h1>
 
-                <!-- Harga -->
                 <div class="price-block">
                     <div class="price-main">Rp <?= number_format($item['harga'], 0, ',', '.') ?></div>
                     <div class="price-unit">per hari · belum termasuk deposit</div>
                 </div>
 
-                <!-- Meta -->
                 <div class="meta-list">
                     <?php if (!empty($item['lokasi'])): ?>
                     <div class="meta-item">
@@ -497,7 +482,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
 
                 <div class="divider"></div>
 
-                <!-- Owner -->
                 <div class="owner-card">
                     <div class="owner-av" style="background:<?= $c[0] ?>;color:<?= $c[1] ?>;"><?= $init ?></div>
                     <div class="owner-info">
@@ -518,7 +502,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
                     <?php endif; ?>
                 </div>
 
-                <!-- CTA -->
                 <?php if (!$user_login): ?>
                     <a href="index.php?page=login" class="btn-login-cta">
                         <i class="ti ti-lock"></i> Login untuk Menyewa
@@ -540,7 +523,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
                     </a>
                 <?php endif; ?>
 
-                <!-- Tombol Laporkan (hanya untuk user login yang bukan pemilik) -->
                 <?php if ($user_login && $item['user_id'] != $user_login): ?>
                     <button type="button" class="btn-report" onclick="openReportModal()">
                         <i class="ti ti-flag"></i> Laporkan Barang Ini
@@ -557,7 +539,6 @@ $other_items = $stmt2->fetchAll(PDO::FETCH_ASSOC);
 
     </div>
 
-    <!-- REPORT MODAL -->
     <?php if ($user_login && $item['user_id'] != $user_login): ?>
     <div id="reportModal" class="report-modal-overlay">
         <div class="report-modal">
