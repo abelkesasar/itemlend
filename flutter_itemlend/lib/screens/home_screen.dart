@@ -4,6 +4,7 @@ import 'login_screen.dart';
 import 'register_screen.dart';
 import 'tambah_barang_screen.dart';
 import 'profile_screen.dart';
+import 'detail_barang_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,6 +16,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   Map<String, String?> _userData = {};
   bool _isLoggedIn = false;
+  int? _loggedInUserId;
 
   List<dynamic> _items = [];
   Map<String, dynamic> _stats = {};
@@ -34,10 +36,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadUser() async {
     final token = await ApiService.getToken();
     final data = await ApiService.getUserData();
+    final userId = await ApiService.getUserId();
     if (!mounted) return;
     setState(() {
       _isLoggedIn = token != null && token.isNotEmpty;
       _userData = data;
+      _loggedInUserId = userId;
     });
   }
 
@@ -113,7 +117,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (!mounted) return;
 
-    // TambahBarangScreen / ProfileScreen pop dengan `true` kalau barang berhasil ditambahkan -> refresh list
     if (result == true) {
       _loadItems();
     }
@@ -129,6 +132,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<String> get _kategoriList {
     final set = <String>{'Semua'};
     for (final item in _items) {
+      if (_loggedInUserId != null && item['user_id'] == _loggedInUserId) continue;
       final k = item['kategori'];
       if (k != null && k.toString().isNotEmpty) set.add(k.toString());
     }
@@ -137,6 +141,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<dynamic> get _filteredItems {
     var list = _items.where((item) {
+      // Sembunyikan barang milik user yang sedang login dari Home
+      // (barang sendiri ditampilkan di halaman "Barang Saya", bukan di sini)
+      if (_loggedInUserId != null && item['user_id'] == _loggedInUserId) return false;
+
       if (_selectedKategori == 'Semua') return true;
       return item['kategori'] == _selectedKategori;
     }).toList();
@@ -146,7 +154,6 @@ class _HomeScreenState extends State<HomeScreen> {
     } else if (_sortBy == 'Harga Termahal') {
       list.sort((a, b) => (b['harga'] as int).compareTo(a['harga'] as int));
     }
-    // 'Terbaru' -> data sudah terurut dari API (ORDER BY created_at DESC)
 
     return list;
   }
@@ -158,14 +165,16 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 1,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
+        titleSpacing: 16,
         title: Row(
           children: [
-            Icon(Icons.inventory_2, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 8),
+            Icon(Icons.inventory_2, color: Theme.of(context).colorScheme.primary, size: 20),
+            const SizedBox(width: 6),
             Text(
               'ItemLend',
               style: TextStyle(
                 fontWeight: FontWeight.bold,
+                fontSize: 16,
                 color: Theme.of(context).colorScheme.primary,
               ),
             ),
@@ -175,14 +184,47 @@ class _HomeScreenState extends State<HomeScreen> {
           if (_isLoggedIn) ...[
             TextButton.icon(
               onPressed: _goToJualSewa,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Jual/Sewa'),
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('Jual/Sewa', style: TextStyle(fontSize: 12.5)),
+              style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6)),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Center(child: Text('Halo, ${_userData['username'] ?? ''}')),
+            const SizedBox(width: 4),
+            PopupMenuButton<String>(
+              padding: EdgeInsets.zero,
+              onSelected: (value) {
+                if (value == 'logout') _handleLogout();
+                if (value == 'profile') _goToJualSewa(); // sementara ke alur profil/jual-sewa
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  enabled: false,
+                  child: Text(
+                    _userData['username'] ?? '',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(value: 'profile', child: Text('Profil Saya')),
+                const PopupMenuItem(value: 'logout', child: Text('Logout')),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 14,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      child: Text(
+                        (_userData['username'] ?? '?').substring(0, 1).toUpperCase(),
+                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.keyboard_arrow_down, size: 16),
+                  ],
+                ),
+              ),
             ),
-            IconButton(icon: const Icon(Icons.logout), onPressed: _handleLogout),
           ] else ...[
             TextButton(onPressed: _goToLogin, child: const Text('Login')),
             const SizedBox(width: 4),
@@ -191,13 +233,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ],
       ),
-      floatingActionButton: _isLoggedIn
-          ? FloatingActionButton.extended(
-              onPressed: _goToJualSewa,
-              icon: const Icon(Icons.add),
-              label: const Text('Jual/Sewa'),
-            )
-          : null,
       body: RefreshIndicator(
         onRefresh: _loadItems,
         child: _isLoading && _items.isEmpty
@@ -247,24 +282,28 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             children: [
               Expanded(
-                child: ElevatedButton(
+                child: ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.white,
                     foregroundColor: const Color(0xFF6366F1),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   onPressed: _goToJualSewa,
-                  child: const Text('Daftarkan Barangmu'),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Daftarkan Barangmu', style: TextStyle(fontSize: 12.5)),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: OutlinedButton(
+                child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: Colors.white),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
-                  onPressed: () {}, // sudah di halaman ini, tombol dekoratif
-                  child: const Text('Jelajahi Barang'),
+                  onPressed: () {},
+                  icon: const Icon(Icons.search, size: 16),
+                  label: const Text('Jelajahi Barang', style: TextStyle(fontSize: 12.5)),
                 ),
               ),
             ],
@@ -300,17 +339,22 @@ class _HomeScreenState extends State<HomeScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           const Text('Daftar Barang', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          DropdownButton<String>(
-            value: _sortBy,
-            underline: const SizedBox(),
-            items: const [
-              DropdownMenuItem(value: 'Terbaru', child: Text('Terbaru')),
-              DropdownMenuItem(value: 'Harga Termurah', child: Text('Harga Termurah')),
-              DropdownMenuItem(value: 'Harga Termahal', child: Text('Harga Termahal')),
+          Row(
+            children: [
+              Text('${_filteredItems.length} barang', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              DropdownButton<String>(
+                value: _sortBy,
+                underline: const SizedBox(),
+                items: const [
+                  DropdownMenuItem(value: 'Terbaru', child: Text('Terbaru')),
+                  DropdownMenuItem(value: 'Harga Termurah', child: Text('Harga Termurah')),
+                  DropdownMenuItem(value: 'Harga Termahal', child: Text('Harga Termahal')),
+                ],
+                onChanged: (value) {
+                  if (value != null) setState(() => _sortBy = value);
+                },
+              ),
             ],
-            onChanged: (value) {
-              if (value != null) setState(() => _sortBy = value);
-            },
           ),
         ],
       ),
@@ -380,7 +424,7 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisCount: 2,
         mainAxisSpacing: 12,
         crossAxisSpacing: 12,
-        childAspectRatio: 0.68,
+        childAspectRatio: 0.62,
       ),
       itemCount: items.length,
       itemBuilder: (context, index) => _buildItemCard(items[index]),
@@ -389,6 +433,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildItemCard(dynamic item) {
     final gambarUrl = item['gambar_url'];
+    final ownerUsername = (item['owner_username'] ?? '-').toString();
+    final ownerInisial = ownerUsername.isNotEmpty ? ownerUsername.substring(0, 2).toUpperCase() : '-';
 
     return Card(
       clipBehavior: Clip.antiAlias,
@@ -398,20 +444,39 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: gambarUrl != null
-                ? Image.network(
-                    gambarUrl,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      color: Colors.grey[200],
-                      child: const Icon(Icons.image_not_supported_outlined, color: Colors.grey),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                gambarUrl != null
+                    ? Image.network(
+                        gambarUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.image_not_supported_outlined, color: Colors.grey),
+                        ),
+                      )
+                    : Container(
+                        color: Colors.grey[200],
+                        child: const Icon(Icons.image_outlined, color: Colors.grey),
+                      ),
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.75),
+                      borderRadius: BorderRadius.circular(20),
                     ),
-                  )
-                : Container(
-                    color: Colors.grey[200],
-                    child: const Icon(Icons.image_outlined, color: Colors.grey),
+                    child: Text(
+                      '${_formatHarga(item['harga'] ?? 0)}/hr',
+                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600),
+                    ),
                   ),
+                ),
+              ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(10),
@@ -422,19 +487,36 @@ class _HomeScreenState extends State<HomeScreen> {
                   item['nama_barang'] ?? '-',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _formatHarga(item['harga'] ?? 0),
-                  style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 14),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  item['owner_username'] ?? '-',
+                  item['deskripsi'] ?? '',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 9,
+                      backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                      child: Text(
+                        ownerInisial,
+                        style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        ownerUsername,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 10, color: Colors.grey),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 SizedBox(
@@ -445,11 +527,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       textStyle: const TextStyle(fontSize: 12),
                     ),
                     onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Halaman detail barang belum tersedia')),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => DetailBarangScreen(itemId: item['id'])),
                       );
                     },
-                    child: const Text('Lihat Detail'),
+                    child: const Text('Detail'),
                   ),
                 ),
               ],

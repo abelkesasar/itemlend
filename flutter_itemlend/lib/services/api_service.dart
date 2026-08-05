@@ -79,6 +79,19 @@ class ApiService {
     }
   }
 
+  /// Ambil detail 1 barang (tidak wajib login)
+  static Future<Map<String, dynamic>> getItemDetail(int id) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/api_detail_barang.php?id=$id'));
+      return jsonDecode(response.body);
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Tidak bisa terhubung ke server. Cek koneksi atau URL API.',
+      };
+    }
+  }
+
   /// Ambil daftar barang yang sudah di-approve admin
   static Future<Map<String, dynamic>> getItems() async {
     try {
@@ -230,6 +243,11 @@ class ApiService {
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('token');
+  }
+
+  static Future<int?> getUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt('user_id');
   }
 
   static Future<Map<String, String?>> getUserData() async {
