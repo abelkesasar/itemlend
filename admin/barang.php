@@ -8,11 +8,12 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
 }
 
 // Filter & search
-$search   = trim($_GET['search'] ?? '');
-$sort     = $_GET['sort'] ?? 'terbaru';
+$search    = trim($_GET['search'] ?? '');
+$sort      = $_GET['sort'] ?? 'terbaru';
+$statusTab = $_GET['tab'] ?? 'approved'; // approved | cooldown
 
-$where = "WHERE 1=1";
-$params = [];
+$where = "WHERE i.status = :status";
+$params = [':status' => $statusTab];
 
 if ($search !== '') {
     $where .= " AND (i.nama_barang LIKE :search OR u.username LIKE :search)";
@@ -37,11 +38,36 @@ $stmt = $conn->prepare($sql);
 $stmt->execute($params);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$total_items   = $conn->query("SELECT COUNT(*) FROM items")->fetchColumn();
+$approved_count = $conn->prepare("SELECT COUNT(*) FROM items WHERE status = 'approved'");
+$approved_count->execute();
+$approved_count = (int) $approved_count->fetchColumn();
+
+$cooldown_count = $conn->prepare("SELECT COUNT(*) FROM items WHERE status = 'cooldown'");
+$cooldown_count->execute();
+$cooldown_count = (int) $cooldown_count->fetchColumn();
+
 $pending_users = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
 $pending_items = $conn->query("SELECT COUNT(*) FROM items WHERE status='pending'")->fetchColumn();
 
-// Icon map berdasarkan kata kunci nama barang
+// Hitung sisa waktu cooldown
+function cooldownRemaining(?string $until): string {
+    if (empty($until)) return 'Tidak diketahui';
+    $end   = strtotime($until);
+    $now   = time();
+    if ($end <= $now) return 'Selesai (perlu review)';
+    $diff  = $end - $now;
+    $days  = floor($diff / 86400);
+    $hours = floor(($diff % 86400) / 3600);
+    $mins  = floor(($diff % 3600) / 60);
+    if ($days > 0)  return "{$days}h {$hours}j {$mins}m lagi";
+    if ($hours > 0) return "{$hours}j {$mins}m lagi";
+    return "{$mins}m lagi";
+}
+function isPermanentBan(?string $until): bool {
+    return !empty($until) && strtotime($until) > strtotime('+3 years');
+}
+
+// Icon map
 function getItemIcon(string $name): string {
     $name = strtolower($name);
     if (str_contains($name, 'motor') || str_contains($name, 'mobil') || str_contains($name, 'sepeda')) return 'ti-bike';
@@ -77,7 +103,6 @@ $avatar_colors = [
             min-height: 100vh;
         }
 
-        /* ── Topbar ── */
         .topbar {
             background: #fff; border-bottom: 1px solid #e5e7eb;
             padding: 0 28px; height: 60px;
@@ -99,8 +124,31 @@ $avatar_colors = [
             font-size: 12px; font-weight: 600;
         }
 
-        /* ── Content ── */
         .content { padding: 24px 28px; }
+
+        /* ── Tabs ── */
+        .tabs-bar {
+            display: flex; gap: 4px;
+            background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
+            padding: 5px; margin-bottom: 18px; overflow-x: auto;
+        }
+        .tab-btn {
+            flex: 1; min-width: 160px; padding: 10px 18px;
+            border: none; background: transparent; border-radius: 9px;
+            font-family: inherit; font-size: 13px; font-weight: 700;
+            color: #6b7280; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 7px;
+            transition: all .15s; white-space: nowrap;
+        }
+        .tab-btn i { font-size: 16px; }
+        .tab-count {
+            background: #f3f4f6; color: #6b7280;
+            font-size: 11px; font-weight: 800;
+            padding: 2px 8px; border-radius: 20px; transition: all .15s;
+        }
+        .tab-btn.active { background: #3d4bff; color: #fff; }
+        .tab-btn.active .tab-count { background: rgba(255,255,255,.25); color: #fff; }
+        .tab-btn:not(.active):hover { background: #f9fafb; color: #374151; }
 
         /* ── Toolbar ── */
         .toolbar {
@@ -128,6 +176,21 @@ $avatar_colors = [
             font-size: 12px; font-weight: 600;
             padding: 5px 12px; border-radius: 20px; white-space: nowrap;
         }
+        .approval-link {
+            display: inline-flex; align-items: center; gap: 7px;
+            height: 40px; padding: 0 16px;
+            background: #fff7e6; color: #cc7a00;
+            border: 1px solid #fed7aa; border-radius: 10px;
+            font-size: 13px; font-weight: 600;
+            text-decoration: none; white-space: nowrap;
+            transition: background 0.15s;
+        }
+        .approval-link:hover { background: #fef3c7; }
+        .approval-badge {
+            background: #cc7a00; color: #fff;
+            font-size: 11px; font-weight: 700;
+            padding: 2px 7px; border-radius: 20px; line-height: 1.4;
+        }
 
         /* ── Grid ── */
         .items-grid {
@@ -136,7 +199,6 @@ $avatar_colors = [
             gap: 16px;
         }
 
-        /* ── Item Card ── */
         .item-card {
             background: #fff;
             border: 1px solid #e5e7eb;
@@ -150,7 +212,6 @@ $avatar_colors = [
             transform: translateY(-3px);
         }
 
-        /* Foto / placeholder */
         .item-thumb {
             width: 100%; aspect-ratio: 4/3;
             background: #f0f1f5;
@@ -164,16 +225,25 @@ $avatar_colors = [
         .item-card:hover .item-thumb img { transform: scale(1.04); }
         .item-thumb .placeholder-icon { font-size: 44px; color: #c9ccd4; }
 
-        /* Price badge */
         .price-badge {
             position: absolute; top: 10px; right: 10px;
             background: #1a1d2e; color: #fff;
             font-size: 11.5px; font-weight: 700;
             padding: 4px 10px; border-radius: 20px;
-            letter-spacing: 0.01em;
         }
 
-        /* Card body */
+        /* Status badge di thumbnail */
+        .status-badge-thumb {
+            position: absolute; top: 10px; left: 10px;
+            font-size: 10.5px; font-weight: 700;
+            padding: 4px 10px; border-radius: 20px;
+            display: flex; align-items: center; gap: 4px;
+            white-space: nowrap;
+        }
+        .sb-approved { background: #e9f9f0; color: #16a34a; border: 1px solid #a7f3d0; }
+        .sb-cooldown { background: #fff7e6; color: #a16207; border: 1px solid #fed7aa; }
+        .sb-banned   { background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; }
+
         .item-body { padding: 14px 16px 16px; flex: 1; display: flex; flex-direction: column; }
         .item-name {
             font-size: 14px; font-weight: 600; color: #1a1d2e;
@@ -187,23 +257,33 @@ $avatar_colors = [
             margin-bottom: 12px; flex: 1;
         }
 
-        /* Meta row */
         .item-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
         .owner-chip {
             display: flex; align-items: center; gap: 6px;
             background: #f4f5f7; border-radius: 20px;
-            padding: 4px 10px 4px 4px;
-            min-width: 0;
+            padding: 4px 10px 4px 4px; min-width: 0;
         }
         .owner-av {
             width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0;
             display: flex; align-items: center; justify-content: center;
             font-size: 9px; font-weight: 700;
         }
-        .owner-name { font-size: 12px; font-weight: 500; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px; }
+        .owner-name {
+            font-size: 12px; font-weight: 500; color: #374151;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 90px;
+        }
         .item-date { font-size: 11px; color: #9ca3af; white-space: nowrap; }
 
-        /* Footer */
+        /* Cooldown info bar */
+        .cooldown-info {
+            background: #fffbeb; border-top: 1px solid #fef3c7;
+            padding: 8px 16px;
+            display: flex; align-items: center; gap: 7px;
+            font-size: 11.5px; color: #92400e;
+        }
+        .cooldown-info i { font-size: 14px; color: #f59e0b; flex-shrink: 0; }
+        .cooldown-info .cd-timer { font-weight: 700; color: #b45309; }
+
         .item-footer {
             border-top: 1px solid #f0f1f3;
             padding: 10px 16px;
@@ -218,7 +298,6 @@ $avatar_colors = [
         }
         .btn-detail:hover { background: #2c38d4; }
 
-        /* Empty state */
         .empty-state {
             grid-column: 1/-1;
             text-align: center; padding: 60px 20px; color: #9ca3af;
@@ -226,7 +305,6 @@ $avatar_colors = [
         .empty-state i { font-size: 48px; display: block; margin-bottom: 12px; }
         .empty-state p { font-size: 14px; }
 
-        /* Responsive */
         @media (max-width: 600px) {
             .sidebar { display: none; }
             .main { margin-left: 0; }
@@ -238,10 +316,7 @@ $avatar_colors = [
 
     <?php include 'sidebar.php'; ?>
 
-    <!-- Main -->
     <div class="main">
-
-        <!-- Topbar -->
         <div class="topbar">
             <div>
                 <h1>Kelola Barang</h1>
@@ -253,20 +328,27 @@ $avatar_colors = [
             </div>
         </div>
 
-        <!-- Content -->
         <div class="content">
+
+            <!-- Tabs -->
+            <div class="tabs-bar">
+                <a href="?tab=approved<?= $search ? '&search=' . urlencode($search) : '' ?><?= $sort !== 'terbaru' ? '&sort=' . $sort : '' ?>"
+                   class="tab-btn <?= $statusTab === 'approved' ? 'active' : '' ?>">
+                    <i class="ti ti-circle-check"></i> Disetujui <span class="tab-count"><?= $approved_count ?></span>
+                </a>
+                <a href="?tab=cooldown<?= $search ? '&search=' . urlencode($search) : '' ?><?= $sort !== 'terbaru' ? '&sort=' . $sort : '' ?>"
+                   class="tab-btn <?= $statusTab === 'cooldown' ? 'active' : '' ?>">
+                    <i class="ti ti-clock"></i> Cooldown <span class="tab-count"><?= $cooldown_count ?></span>
+                </a>
+            </div>
 
             <!-- Toolbar -->
             <form method="GET" action="">
+                <input type="hidden" name="tab" value="<?= htmlspecialchars($statusTab) ?>">
                 <div class="toolbar">
                     <div class="search-box">
                         <i class="ti ti-search"></i>
-                        <input
-                            type="text"
-                            name="search"
-                            placeholder="Cari nama barang atau pemilik..."
-                            value="<?= htmlspecialchars($search) ?>"
-                        >
+                        <input type="text" name="search" placeholder="Cari nama barang atau pemilik..." value="<?= htmlspecialchars($search) ?>">
                     </div>
                     <select name="sort" class="sort-select" onchange="this.form.submit()">
                         <option value="terbaru" <?= $sort === 'terbaru' ? 'selected' : '' ?>>Terbaru</option>
@@ -276,26 +358,11 @@ $avatar_colors = [
                     </select>
                     <button type="submit" style="display:none"></button>
                     <span class="count-pill"><?= count($items) ?> barang</span>
-                    <a href="barangapproval.php" style="
-                        display:inline-flex; align-items:center; gap:7px;
-                        height:40px; padding:0 16px;
-                        background:#fff7e6; color:#cc7a00;
-                        border:1px solid #fed7aa;
-                        border-radius:10px;
-                        font-size:13px; font-weight:600;
-                        text-decoration:none;
-                        white-space:nowrap;
-                        transition:background 0.15s;
-                    " onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fff7e6'">
+                    <a href="barangapproval.php" class="approval-link">
                         <i class="ti ti-clock" style="font-size:16px"></i>
                         Approval Barang
                         <?php if ($pending_items > 0): ?>
-                            <span style="
-                                background:#cc7a00; color:#fff;
-                                font-size:11px; font-weight:700;
-                                padding:2px 7px; border-radius:20px;
-                                line-height:1.4;
-                            "><?= $pending_items ?></span>
+                            <span class="approval-badge"><?= $pending_items ?></span>
                         <?php endif; ?>
                     </a>
                 </div>
@@ -306,7 +373,7 @@ $avatar_colors = [
                 <?php if (empty($items)): ?>
                     <div class="empty-state">
                         <i class="ti ti-mood-empty"></i>
-                        <p>Tidak ada barang<?= $search ? " untuk \"$search\"" : '' ?></p>
+                        <p>Tidak ada barang<?= $search ? " untuk \"$search\"" : '' ?> di kategori ini</p>
                     </div>
                 <?php else: ?>
                     <?php foreach ($items as $item):
@@ -315,6 +382,8 @@ $avatar_colors = [
                         $init  = strtoupper(substr($item['owner'] ?? '?', 0, 2));
                         $tgl   = date('d M Y', strtotime($item['created_at']));
                         $harga = 'Rp' . number_format($item['harga'] ?? 0, 0, ',', '.') . '/hr';
+
+                        $isPermanent = isPermanentBan($item['banned_until'] ?? null);
                     ?>
                     <div class="item-card">
                         <div class="item-thumb">
@@ -340,6 +409,13 @@ $avatar_colors = [
                                 <i class="ti <?= $icon ?> placeholder-icon"></i>
                             <?php endif; ?>
                             <span class="price-badge"><?= $harga ?></span>
+
+                            <?php if ($statusTab === 'cooldown'): ?>
+                                <span class="status-badge-thumb <?= $isPermanent ? 'sb-banned' : 'sb-cooldown' ?>">
+                                    <i class="ti ti-<?= $isPermanent ? 'ban' : 'clock' ?>"></i>
+                                    <?= $isPermanent ? 'Banned' : 'Cooldown' ?>
+                                </span>
+                            <?php endif; ?>
                         </div>
 
                         <div class="item-body">
@@ -357,6 +433,20 @@ $avatar_colors = [
                                 <span class="item-date"><?= $tgl ?></span>
                             </div>
                         </div>
+
+                        <?php if ($statusTab === 'cooldown'): ?>
+                        <div class="cooldown-info">
+                            <i class="ti ti-alert-triangle"></i>
+                            <span>
+                                <?php if ($isPermanent): ?>
+                                    Banned permanen — Barang dinonaktifkan selamanya
+                                <?php else: ?>
+                                    Sisa cooldown: <span class="cd-timer"><?= cooldownRemaining($item['banned_until'] ?? null) ?></span>
+                                    &middot; s/d <?= date('d M Y', strtotime($item['banned_until'] ?? 'now')) ?>
+                                <?php endif; ?>
+                            </span>
+                        </div>
+                        <?php endif; ?>
 
                         <div class="item-footer">
                             <a href="../index.php?page=detail&id=<?= $item['id'] ?>" class="btn-detail">

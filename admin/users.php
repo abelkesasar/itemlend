@@ -28,15 +28,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Stats untuk sidebar
 $pending_users = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
 
-// Ambil semua user (tambah no_hp)
+// Ambil semua user (tambah banned_until)
 $users = $conn->query("
-    SELECT id, username, role, status, alamat, nomor_wa, foto_profil, ktm, ktp
+    SELECT id, username, role, status, alamat, nomor_wa, foto_profil, ktm, ktp, banned_until
     FROM users
-    ORDER BY 
-        CASE 
+    ORDER BY
+        CASE
             WHEN status = 'pending' THEN 1
             WHEN status = 'approved' THEN 2
-            WHEN status = 'rejected' THEN 3
+            WHEN status = 'cooldown' THEN 3
             ELSE 4
         END,
         id DESC
@@ -45,15 +45,41 @@ $users = $conn->query("
 $total_users    = count($users);
 $total_approved = $conn->query("SELECT COUNT(*) FROM users WHERE status='approved'")->fetchColumn();
 $total_pending  = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
-$total_rejected = $conn->query("SELECT COUNT(*) FROM users WHERE status='rejected'")->fetchColumn();
+$total_cooldown = $conn->query("SELECT COUNT(*) FROM users WHERE status='cooldown'")->fetchColumn();
 
-function statusBadge($status) {
+function isPermanentBan(?string $until): bool {
+    return !empty($until) && strtotime($until) > strtotime('+3 years');
+}
+
+function cooldownRemaining(?string $until): string {
+    if (empty($until)) return '-';
+    $end = strtotime($until);
+    $now = time();
+    if ($end <= $now) return 'Selesai (perlu review)';
+    $diff  = $end - $now;
+    $days  = floor($diff / 86400);
+    $hours = floor(($diff % 86400) / 3600);
+    $mins  = floor(($diff % 3600) / 60);
+    if ($days > 0)  return "{$days}h {$hours}j {$mins}m lagi";
+    if ($hours > 0) return "{$hours}j {$mins}m lagi";
+    return "{$mins}m lagi";
+}
+
+function statusBadge($status, ?string $banned_until = null) {
     if ($status === 'approved') {
         return '<span class="badge badge-approved"><i class="ti ti-circle-check"></i> Approved</span>';
-    } elseif ($status === 'pending') {
+    }
+    if ($status === 'pending') {
         return '<span class="badge badge-pending"><i class="ti ti-clock"></i> Pending</span>';
-    } elseif ($status === 'rejected') {
-        return '<span class="badge badge-rejected"><i class="ti ti-circle-x"></i> Rejected</span>';
+    }
+    if ($status === 'cooldown') {
+        if (isPermanentBan($banned_until)) {
+            return '<span class="badge badge-banned"><i class="ti ti-ban"></i> Banned</span>';
+        }
+        $remaining = cooldownRemaining($banned_until);
+        return '<span class="badge badge-cooldown"><i class="ti ti-clock"></i> Cooldown</span>'
+             . '<div class="cooldown-detail">' . $remaining
+             . '<br><span class="cooldown-until">s/d ' . date('d M Y', strtotime($banned_until ?? 'now')) . '</span></div>';
     }
     return '<span class="badge badge-unknown">Unknown</span>';
 }
@@ -83,427 +109,138 @@ function waLink($nomor_wa) {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
 
     <style>
-        *, *::before, *::after {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background: #f4f5f7;
-            color: #1a1d2e;
-            min-height: 100vh;
-        }
-
-        .admin-wrap {
-            display: flex;
-            min-height: 100vh;
-        }
-
-        .main {
-            margin-left: 220px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f4f5f7; color: #1a1d2e; min-height: 100vh; }
+        .admin-wrap { display: flex; min-height: 100vh; }
+        .main { margin-left: 220px; flex: 1; display: flex; flex-direction: column; }
 
         .topbar {
-            background: #fff;
-            border-bottom: 1px solid #e5e7eb;
-            padding: 0 28px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: sticky;
-            top: 0;
-            z-index: 50;
+            background: #fff; border-bottom: 1px solid #e5e7eb;
+            padding: 0 28px; height: 60px;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 50;
         }
-
-        .topbar-left h1 {
-            font-size: 17px;
-            font-weight: 600;
-        }
-
-        .topbar-left p {
-            font-size: 12px;
-            color: #6b7280;
-            margin-top: 1px;
-        }
-
-        .topbar-right {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .admin-pill {
-            background: #eef0ff;
-            color: #3d4bff;
-            font-size: 12px;
-            font-weight: 600;
-            padding: 4px 12px;
-            border-radius: 20px;
-        }
-
+        .topbar-left h1 { font-size: 17px; font-weight: 600; }
+        .topbar-left p  { font-size: 12px; color: #6b7280; margin-top: 1px; }
+        .topbar-right { display: flex; align-items: center; gap: 12px; }
+        .admin-pill { background: #eef0ff; color: #3d4bff; font-size: 12px; font-weight: 600; padding: 4px 12px; border-radius: 20px; }
         .avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: #3d4bff;
-            color: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            font-weight: 600;
+            width: 32px; height: 32px; border-radius: 50%;
+            background: #3d4bff; color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 600;
         }
+        .content { padding: 24px 28px; }
 
-        .content {
-            padding: 24px 28px;
-        }
+        /* Stats */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+        .stat-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px; }
+        .stat-label { font-size: 12px; color: #6b7280; margin-bottom: 6px; }
+        .stat-value { font-size: 28px; font-weight: 700; line-height: 1; }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 14px;
-            margin-bottom: 20px;
-        }
-
-        .stat-card {
-            background: #fff;
-            border: 1px solid #e5e7eb;
-            border-radius: 14px;
-            padding: 18px;
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: #6b7280;
-            margin-bottom: 6px;
-        }
-
-        .stat-value {
-            font-size: 28px;
-            font-weight: 700;
-            line-height: 1;
-        }
-
-        .table-card {
-            background: #fff;
-            border: 1px solid #e5e7eb;
-            border-radius: 14px;
-            overflow: hidden;
-        }
-
+        /* Table */
+        .table-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; }
         .table-header {
-            padding: 18px 20px;
-            border-bottom: 1px solid #e5e7eb;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            flex-wrap: wrap;
+            padding: 18px 20px; border-bottom: 1px solid #e5e7eb;
+            display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
         }
+        .table-title { font-size: 15px; font-weight: 700; }
+        .table-sub   { font-size: 12px; color: #6b7280; margin-top: 2px; }
 
-        .table-title {
-            font-size: 15px;
-            font-weight: 700;
-        }
-
-        .table-sub {
-            font-size: 12px;
-            color: #6b7280;
-            margin-top: 2px;
-        }
-
-        /* Search */
-        .search-wrap {
-            position: relative;
-        }
-
+        .search-wrap { position: relative; }
         .search-input {
-            padding: 8px 12px 8px 36px;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            font-size: 13px;
-            font-family: inherit;
-            width: 220px;
-            outline: none;
-            transition: border 0.15s;
-            color: #1a1d2e;
+            padding: 8px 12px 8px 36px; border: 1px solid #e5e7eb; border-radius: 8px;
+            font-size: 13px; font-family: inherit; width: 220px; outline: none;
+            transition: border 0.15s; color: #1a1d2e;
         }
+        .search-input:focus { border-color: #3d4bff; }
+        .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 15px; pointer-events: none; }
 
-        .search-input:focus {
-            border-color: #3d4bff;
-        }
-
-        .search-icon {
-            position: absolute;
-            left: 10px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #9ca3af;
-            font-size: 15px;
-            pointer-events: none;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        thead tr {
-            background: #f8f9fb;
-            border-bottom: 1px solid #e5e7eb;
-        }
-
+        table { width: 100%; border-collapse: collapse; }
+        thead tr { background: #f8f9fb; border-bottom: 1px solid #e5e7eb; }
         thead th {
-            padding: 12px 16px;
-            font-size: 11.5px;
-            font-weight: 700;
-            color: #6b7280;
-            text-align: left;
-            letter-spacing: 0.03em;
-            text-transform: uppercase;
-            white-space: nowrap;
+            padding: 12px 16px; font-size: 11.5px; font-weight: 700; color: #6b7280;
+            text-align: left; letter-spacing: 0.03em; text-transform: uppercase; white-space: nowrap;
         }
+        tbody tr { border-bottom: 1px solid #f0f1f3; transition: background 0.12s; }
+        tbody tr:hover { background: #fafbff; }
+        tbody tr:last-child { border-bottom: none; }
+        tbody td { padding: 14px 16px; font-size: 13.5px; vertical-align: middle; }
 
-        tbody tr {
-            border-bottom: 1px solid #f0f1f3;
-            transition: background 0.12s;
-        }
-
-        tbody tr:hover {
-            background: #fafbff;
-        }
-
-        tbody tr:last-child {
-            border-bottom: none;
-        }
-
-        tbody td {
-            padding: 14px 16px;
-            font-size: 13.5px;
-            vertical-align: middle;
-        }
-
-        .user-cell {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
+        .user-cell { display: flex; align-items: center; gap: 10px; }
         .user-av {
-            width: 34px;
-            height: 34px;
-            border-radius: 50%;
-            background: #eef0ff;
-            color: #3d4bff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            font-weight: 700;
-            flex-shrink: 0;
-            overflow: hidden;
+            width: 34px; height: 34px; border-radius: 50%;
+            background: #eef0ff; color: #3d4bff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 700; flex-shrink: 0; overflow: hidden;
         }
-
-        .user-name {
-            font-size: 13.5px;
-            font-weight: 600;
-        }
-
-        .user-id {
-            font-size: 11.5px;
-            color: #6b7280;
-            margin-top: 2px;
-        }
+        .user-name { font-size: 13.5px; font-weight: 600; }
+        .user-id   { font-size: 11.5px; color: #6b7280; margin-top: 2px; }
 
         .role-pill {
-            display: inline-flex;
-            align-items: center;
-            padding: 4px 10px;
-            border-radius: 20px;
-            background: #f3f4f6;
-            color: #374151;
-            font-size: 11.5px;
-            font-weight: 600;
-            text-transform: capitalize;
+            display: inline-flex; align-items: center; padding: 4px 10px;
+            border-radius: 20px; background: #f3f4f6; color: #374151;
+            font-size: 11.5px; font-weight: 600; text-transform: capitalize;
         }
 
-        .alamat {
-            color: #6b7280;
-            max-width: 220px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
+        .alamat { color: #6b7280; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+        /* Badges */
         .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 5px 10px;
-            border-radius: 20px;
-            white-space: nowrap;
+            display: inline-flex; align-items: center; gap: 5px;
+            font-size: 11px; font-weight: 700; padding: 5px 10px;
+            border-radius: 20px; white-space: nowrap;
         }
+        .badge-approved { background: #e9f9f0; color: #1a7a46; border: 1px solid #a7f3d0; }
+        .badge-pending  { background: #fff7e6; color: #cc7a00; border: 1px solid #fed7aa; }
+        .badge-rejected { background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; }
+        .badge-cooldown { background: #fff7e6; color: #a16207; border: 1px solid #fed7aa; }
+        .badge-banned   { background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; }
+        .badge-unknown  { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
 
-        .badge-approved {
-            background: #e9f9f0;
-            color: #1a7a46;
-            border: 1px solid #a7f3d0;
+        .cooldown-detail {
+            font-size: 11px; font-weight: 600; color: #b45309;
+            margin-top: 5px; line-height: 1.5;
         }
+        .cooldown-until { font-weight: 400; color: #92400e; }
 
-        .badge-pending {
-            background: #fff7e6;
-            color: #cc7a00;
-            border: 1px solid #fed7aa;
-        }
-
-        .badge-rejected {
-            background: #fff5f5;
-            color: #dc2626;
-            border: 1px solid #fecaca;
-        }
-
-        .badge-unknown {
-            background: #f3f4f6;
-            color: #6b7280;
-            border: 1px solid #e5e7eb;
-        }
-
-        .docs {
-            display: flex;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-
+        .docs { display: flex; gap: 6px; flex-wrap: wrap; }
         .doc-pill {
-            font-size: 11px;
-            font-weight: 600;
-            padding: 4px 8px;
-            border-radius: 20px;
-            background: #eef0ff;
-            color: #3d4bff;
-            text-decoration: none;
+            font-size: 11px; font-weight: 600; padding: 4px 8px;
+            border-radius: 20px; background: #eef0ff; color: #3d4bff; text-decoration: none;
         }
+        .doc-empty { font-size: 11px; color: #9ca3af; }
 
-        .doc-empty {
-            font-size: 11px;
-            color: #9ca3af;
-        }
-
-        .actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
+        .actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .btn {
-            border: none;
-            cursor: pointer;
-            border-radius: 8px;
-            padding: 7px 12px;
-            font-size: 12px;
-            font-weight: 700;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            white-space: nowrap;
-            text-decoration: none;
+            border: none; cursor: pointer; border-radius: 8px; padding: 7px 12px;
+            font-size: 12px; font-weight: 700; display: inline-flex;
+            align-items: center; gap: 5px; white-space: nowrap; text-decoration: none;
         }
+        .btn-approve   { background: #3d4bff; color: #fff; }
+        .btn-approve:hover { background: #2c38d4; }
+        .btn-reject    { background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; }
+        .btn-reject:hover  { background: #fee2e2; }
+        .btn-wa        { background: #e7f9ef; color: #16a34a; border: 1px solid #bbf7d0; text-decoration: none; }
+        .btn-wa:hover       { background: #dcfce7; }
+        .btn-disabled   { background: #f3f4f6; color: #9ca3af; cursor: default; border: none; }
 
-        .btn-approve {
-            background: #3d4bff;
-            color: #fff;
-        }
-
-        .btn-approve:hover {
-            background: #2c38d4;
-        }
-
-        .btn-reject {
-            background: #fff5f5;
-            color: #dc2626;
-            border: 1px solid #fecaca;
-        }
-
-        .btn-reject:hover {
-            background: #fee2e2;
-        }
-
-        .btn-wa {
-            background: #e7f9ef;
-            color: #16a34a;
-            border: 1px solid #bbf7d0;
-            text-decoration: none;
-        }
-
-        .btn-wa:hover {
-            background: #dcfce7;
-        }
-
-        .btn-disabled {
-            background: #f3f4f6;
-            color: #9ca3af;
-            cursor: default;
-            border: none;
-        }
-
-        .no-hp-empty {
-            font-size: 11px;
-            color: #9ca3af;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 48px 20px;
-            color: #9ca3af;
-            font-size: 13px;
-        }
-
+        .no-hp-empty { font-size: 11px; color: #9ca3af; }
+        .empty-state { text-align: center; padding: 48px 20px; color: #9ca3af; font-size: 13px; }
         .no-result {
-            text-align: center;
-            padding: 32px 20px;
-            color: #9ca3af;
-            font-size: 13px;
-            display: none;
+            text-align: center; padding: 32px 20px; color: #9ca3af; font-size: 13px; display: none;
         }
 
         @media (max-width: 1000px) {
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .hide-md {
-                display: none;
-            }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .hide-md { display: none; }
         }
-
         @media (max-width: 600px) {
-            .main {
-                margin-left: 0;
-            }
-
-            .content {
-                padding: 16px;
-            }
-
-            .stats-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .table-card {
-                overflow-x: auto;
-            }
-
-            .search-input {
-                width: 100%;
-            }
+            .main { margin-left: 0; }
+            .content { padding: 16px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .table-card { overflow-x: auto; }
+            .search-input { width: 100%; }
         }
     </style>
 </head>
@@ -541,8 +278,8 @@ function waLink($nomor_wa) {
                     <div class="stat-value"><?= $total_pending ?></div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-label">Rejected</div>
-                    <div class="stat-value"><?= $total_rejected ?></div>
+                    <div class="stat-label">Cooldown</div>
+                    <div class="stat-value" style="color:#b45309;"><?= $total_cooldown ?></div>
                 </div>
             </div>
 
@@ -554,13 +291,7 @@ function waLink($nomor_wa) {
                     </div>
                     <div class="search-wrap">
                         <i class="ti ti-search search-icon"></i>
-                        <input
-                            type="text"
-                            id="searchInput"
-                            class="search-input"
-                            placeholder="Cari username / ID..."
-                            oninput="filterUsers()"
-                        >
+                        <input type="text" id="searchInput" class="search-input" placeholder="Cari username / ID..." oninput="filterUsers()">
                     </div>
                 </div>
 
@@ -586,9 +317,7 @@ function waLink($nomor_wa) {
                                         <div class="user-cell">
                                             <div class="user-av">
                                                 <?php if (!empty($u['foto_profil']) && file_exists("../uploads/" . $u['foto_profil'])): ?>
-                                                    <img src="../uploads/<?= htmlspecialchars($u['foto_profil']) ?>"
-                                                         alt="Foto Profil"
-                                                         style="width:100%;height:100%;object-fit:cover;">
+                                                    <img src="../uploads/<?= htmlspecialchars($u['foto_profil']) ?>" alt="" style="width:100%;height:100%;object-fit:cover;">
                                                 <?php else: ?>
                                                     <?= userInitial($u['username']) ?>
                                                 <?php endif; ?>
@@ -602,18 +331,12 @@ function waLink($nomor_wa) {
                                         </div>
                                     </td>
 
-                                    <td>
-                                        <span class="role-pill"><?= htmlspecialchars($u['role']) ?></span>
-                                    </td>
+                                    <td><span class="role-pill"><?= htmlspecialchars($u['role']) ?></span></td>
 
-                                    <td>
-                                        <?= statusBadge($u['status']) ?>
-                                    </td>
+                                    <td><?= statusBadge($u['status'], $u['banned_until'] ?? null) ?></td>
 
                                     <td class="hide-md">
-                                        <div class="alamat">
-                                            <?= !empty($u['alamat']) ? htmlspecialchars($u['alamat']) : '-' ?>
-                                        </div>
+                                        <div class="alamat"><?= !empty($u['alamat']) ? htmlspecialchars($u['alamat']) : '-' ?></div>
                                     </td>
 
                                     <td class="hide-md">
@@ -621,15 +344,12 @@ function waLink($nomor_wa) {
                                             <?php if (!empty($u['foto_profil'])): ?>
                                                 <a class="doc-pill" href="../uploads/<?= htmlspecialchars($u['foto_profil']) ?>" target="_blank">Profil</a>
                                             <?php endif; ?>
-
                                             <?php if (!empty($u['ktm'])): ?>
                                                 <a class="doc-pill" href="../uploads/<?= htmlspecialchars($u['ktm']) ?>" target="_blank">KTM</a>
                                             <?php endif; ?>
-
                                             <?php if (!empty($u['ktp'])): ?>
                                                 <a class="doc-pill" href="../uploads/<?= htmlspecialchars($u['ktp']) ?>" target="_blank">KTP</a>
                                             <?php endif; ?>
-
                                             <?php if (empty($u['foto_profil']) && empty($u['ktm']) && empty($u['ktp'])): ?>
                                                 <span class="doc-empty">Belum ada</span>
                                             <?php endif; ?>
@@ -653,22 +373,15 @@ function waLink($nomor_wa) {
                                                 <form method="POST" style="display:inline;">
                                                     <input type="hidden" name="id" value="<?= $u['id'] ?>">
                                                     <input type="hidden" name="action" value="approved">
-                                                    <button type="submit" class="btn btn-approve">
-                                                        <i class="ti ti-check"></i> Approve
-                                                    </button>
+                                                    <button type="submit" class="btn btn-approve"><i class="ti ti-check"></i> Approve</button>
                                                 </form>
-
                                                 <form method="POST" style="display:inline;" onsubmit="return confirm('Tolak dan hapus user ini?')">
                                                     <input type="hidden" name="id" value="<?= $u['id'] ?>">
                                                     <input type="hidden" name="action" value="rejected">
-                                                    <button type="submit" class="btn btn-reject">
-                                                        <i class="ti ti-x"></i> Reject
-                                                    </button>
+                                                    <button type="submit" class="btn btn-reject"><i class="ti ti-x"></i> Reject</button>
                                                 </form>
                                             <?php else: ?>
-                                                <span class="btn btn-disabled">
-                                                    <i class="ti ti-lock"></i> Selesai
-                                                </span>
+                                                <span class="btn btn-disabled"><i class="ti ti-lock"></i> Selesai</span>
                                             <?php endif; ?>
                                         </div>
                                     </td>
@@ -693,7 +406,6 @@ function filterUsers() {
     const keyword = document.getElementById('searchInput').value.toLowerCase().trim();
     const rows    = document.querySelectorAll('#userTableBody tr');
     let visibleCount = 0;
-
     rows.forEach(row => {
         const username = row.querySelector('.user-name')?.textContent.toLowerCase() ?? '';
         const userId   = row.querySelector('.user-id')?.textContent.toLowerCase() ?? '';
@@ -701,7 +413,6 @@ function filterUsers() {
         row.style.display = match ? '' : 'none';
         if (match) visibleCount++;
     });
-
     document.getElementById('noResult').style.display = visibleCount === 0 ? 'block' : 'none';
 }
 </script>
