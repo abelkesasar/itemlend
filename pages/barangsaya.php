@@ -60,6 +60,12 @@ function labelPinjam(string $s): array {
         default           => ['Belum Mulai',       'fff7e6', 'cc7a00', 'fed7aa', 'ti-clock'],
     };
 }
+
+// Apakah pemilik boleh melaporkan penyewa? (kalau barang sedang/sudah selesai dipinjam)
+function canOwnerReport(array $p): bool {
+    $spj = $p['status_pinjam'] ?? 'belum_mulai';
+    return $spj === 'sedang_dipinjam' || $spj === 'selesai';
+}
 ?>
 
 <style>
@@ -68,7 +74,6 @@ function labelPinjam(string $s): array {
     .bsaya-title { font-size: 24px; font-weight: 800; color: #1a1d2e; }
     .bsaya-sub   { font-size: 13px; color: #6b7280; margin-top: 4px; margin-bottom: 24px; }
 
-    /* Stats */
     .stats-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 24px; }
     .stat-mini { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; display: flex; align-items: center; gap: 12px; }
     .stat-mini-icon { width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
@@ -80,7 +85,6 @@ function labelPinjam(string $s): array {
     .stat-mini-val   { font-size: 22px; font-weight: 800; color: #1a1d2e; line-height: 1; }
     .stat-mini-label { font-size: 11.5px; color: #6b7280; margin-top: 2px; }
 
-    /* Tabs */
     .tabs { display: flex; gap: 4px; margin-bottom: 20px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 4px; width: fit-content; }
     .tab-btn { display: flex; align-items: center; gap: 7px; padding: 8px 18px; border-radius: 9px; font-size: 13.5px; font-weight: 600; cursor: pointer; color: #6b7280; border: none; background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; text-decoration: none; transition: all 0.15s; }
     .tab-btn:hover { color: #1a1d2e; background: #f4f5f7; }
@@ -89,13 +93,11 @@ function labelPinjam(string $s): array {
     .tab-badge { background: #ff5c5c; color: #fff; font-size: 10px; font-weight: 700; border-radius: 20px; padding: 1px 6px; }
     .tab-btn.active .tab-badge { background: rgba(255,255,255,0.3); }
 
-    /* Section header */
     .sec-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
     .sec-title { font-size: 15px; font-weight: 700; color: #1a1d2e; }
     .btn-tambah { display: inline-flex; align-items: center; gap: 6px; background: #3d4bff; color: #fff; font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 9px; text-decoration: none; transition: background 0.15s; }
     .btn-tambah:hover { background: #2c38d4; }
 
-    /* Barang grid */
     .barang-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 14px; }
     .barang-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; transition: box-shadow 0.18s, transform 0.18s; }
     .barang-card:hover { box-shadow: 0 6px 24px rgba(61,75,255,0.1); transform: translateY(-3px); }
@@ -116,7 +118,6 @@ function labelPinjam(string $s): array {
     .btn-del-sm { display: flex; align-items: center; justify-content: center; padding: 7px 10px; border-radius: 8px; font-size: 13px; background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; transition: background 0.15s; cursor: pointer; font-family: inherit; }
     .btn-del-sm:hover { background: #fee2e2; }
 
-    /* Edit form */
     .edit-form-wrap { background: #fff; border: 1.5px solid #3d4bff; border-radius: 16px; padding: 20px; margin-bottom: 14px; display: none; }
     .edit-form-wrap.show { display: block; }
     .edit-form-title { font-size: 14px; font-weight: 700; color: #1a1d2e; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
@@ -133,7 +134,6 @@ function labelPinjam(string $s): array {
     .btn-save:hover { background: #2c38d4; }
     .btn-cancel { padding: 10px 20px; background: #f4f5f7; color: #6b7280; border: none; border-radius: 9px; font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; }
 
-    /* ═══ PESANAN TABLE ═══ */
     .pesanan-list { display: flex; flex-direction: column; gap: 14px; }
 
     .pesanan-card {
@@ -155,7 +155,6 @@ function labelPinjam(string $s): array {
     .pc-total { font-size: 16px; font-weight: 800; color: #3d4bff; }
     .pc-id    { font-size: 11px; color: #9ca3af; }
 
-    /* Badges pembayaran */
     .pay-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
     .pay-badge i { font-size: 12px; }
     .pb-lunas    { background: #e9f9f0; color: #16a34a; border: 1px solid #bbf7d0; }
@@ -163,7 +162,6 @@ function labelPinjam(string $s): array {
     .pb-pending  { background: #f4f5f7; color: #6b7280; }
     .pb-ditolak  { background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; }
 
-    /* Status pinjam area */
     .pc-pinjam {
         padding: 14px 18px; border-top: 1px solid #f0f1f3;
         display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -181,7 +179,6 @@ function labelPinjam(string $s): array {
     .pstep.active  { color: #2563eb; border-color: #93c5fd; background: #eff6ff; }
     .pstep-arrow   { font-size: 14px; color: #d1d5db; margin: 0 4px; }
 
-    /* Tombol ubah status */
     .pinjam-actions { display: flex; gap: 8px; flex-wrap: wrap; }
     .btn-status {
         display: inline-flex; align-items: center; gap: 6px;
@@ -200,8 +197,11 @@ function labelPinjam(string $s): array {
         text-decoration: none; transition: background 0.15s;
     }
     .btn-wa-owner:hover { background: #dcfce7; }
+    .btn-report-owner {
+        background: #fff5f5; color: #dc2626; border: 1px solid #fecaca;
+    }
+    .btn-report-owner:hover { background: #fee2e2; }
 
-    /* Info menunggu konfirmasi */
     .waiting-note {
         display: flex; align-items: center; gap: 8px;
         background: #fefce8; border: 1px solid #fde68a; border-radius: 10px;
@@ -210,10 +210,75 @@ function labelPinjam(string $s): array {
     }
     .waiting-note i { font-size: 16px; flex-shrink: 0; }
 
-    /* Empty */
     .empty-state { text-align: center; padding: 48px 20px; color: #9ca3af; }
     .empty-state i { font-size: 44px; display: block; margin-bottom: 10px; color: #e5e7eb; }
     .empty-state h3 { font-size: 14px; font-weight: 700; color: #6b7280; margin-bottom: 4px; }
+
+    /* ── REPORT MODAL ── */
+    .report-modal-overlay {
+        display: none;
+        position: fixed; inset: 0;
+        background: rgba(26,29,46,0.55);
+        z-index: 200;
+        align-items: center; justify-content: center;
+        padding: 20px;
+    }
+    .report-modal-overlay.active { display: flex; }
+    .report-modal {
+        background: #fff; border-radius: 18px;
+        width: 100%; max-width: 440px;
+        padding: 24px;
+        max-height: 90vh; overflow-y: auto;
+    }
+    .report-modal-header {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 6px;
+    }
+    .report-modal-header h3 {
+        font-size: 17px; font-weight: 800; color: #dc2626;
+        display: flex; align-items: center; gap: 8px;
+    }
+    .report-close {
+        background: #f4f5f7; border: none; cursor: pointer;
+        width: 30px; height: 30px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        color: #6b7280; font-size: 15px;
+    }
+    .report-close:hover { background: #e5e7eb; }
+    .report-target-name {
+        font-size: 13px; color: #6b7280; margin-bottom: 16px;
+    }
+    .report-target-name strong { color: #1a1d2e; }
+    .report-field { margin-bottom: 14px; }
+    .report-field label {
+        display: block; font-size: 12.5px; font-weight: 700;
+        color: #1a1d2e; margin-bottom: 6px;
+    }
+    .report-field textarea {
+        width: 100%; padding: 10px 12px;
+        border: 1.5px solid #e5e7eb; border-radius: 10px;
+        font-family: inherit; font-size: 13.5px; color: #1a1d2e;
+        resize: vertical;
+    }
+    .report-field input[type="text"] {
+        width: 100%; padding: 10px 12px;
+        border: 1.5px solid #e5e7eb; border-radius: 10px;
+        font-family: inherit; font-size: 13.5px; color: #1a1d2e;
+    }
+    .report-field input[type="file"] { font-size: 13px; }
+    .report-field input[type="text"]:focus,
+    .report-field textarea:focus {
+        outline: none; border-color: #dc2626;
+    }
+    .btn-submit-report {
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        width: 100%; padding: 13px;
+        background: #dc2626; color: #fff;
+        border: none; border-radius: 12px;
+        font-family: inherit; font-size: 14px; font-weight: 700;
+        cursor: pointer; transition: background 0.15s;
+    }
+    .btn-submit-report:hover { background: #b91c1c; }
 
     @media (max-width: 720px) {
         .stats-row { grid-template-columns: repeat(2,1fr); }
@@ -346,14 +411,12 @@ function labelPinjam(string $s): array {
                 $tgl1 = date('d M Y', strtotime($p['tanggal_mulai']));
                 $tgl2 = date('d M Y', strtotime($p['tanggal_selesai']));
 
-                // Card class
                 $cardClass = match($sp) {
                     'lunas'               => 'lunas-card',
                     'menunggu_konfirmasi' => 'waiting-card',
                     default               => 'pending-card',
                 };
 
-                // Badge pembayaran
                 $payBadge = match($sp) {
                     'lunas'               => '<span class="pay-badge pb-lunas"><i class="ti ti-check"></i> Lunas</span>',
                     'menunggu_konfirmasi' => '<span class="pay-badge pb-waiting"><i class="ti ti-hourglass"></i> Menunggu Konfirmasi Admin</span>',
@@ -361,7 +424,6 @@ function labelPinjam(string $s): array {
                     default               => '<span class="pay-badge pb-pending"><i class="ti ti-clock"></i> Belum Bayar</span>',
                 };
 
-                // Step status pinjam
                 $steps = [
                     'belum_mulai'     => ['Belum Mulai',    'ti-clock',        false, false],
                     'sedang_dipinjam' => ['Sedang Berjalan','ti-clock-play',   false, false],
@@ -372,7 +434,6 @@ function labelPinjam(string $s): array {
             ?>
             <div class="pesanan-card <?= $cardClass ?>">
 
-                <!-- Head -->
                 <div class="pc-head">
                     <div class="pc-thumb">
                         <?php if ($g): ?><img src="<?= htmlspecialchars($g) ?>" alt=""><?php else: ?><i class="ti ti-box-seam"></i><?php endif; ?>
@@ -395,7 +456,6 @@ function labelPinjam(string $s): array {
                     </div>
                 </div>
 
-                <!-- Menunggu konfirmasi admin -->
                 <?php if ($sp === 'menunggu_konfirmasi'): ?>
                 <div class="waiting-note">
                     <i class="ti ti-info-circle"></i>
@@ -403,7 +463,6 @@ function labelPinjam(string $s): array {
                 </div>
                 <?php endif; ?>
 
-                <!-- Status pinjam (hanya kalau lunas) -->
                 <?php if ($sp === 'lunas'): ?>
                 <div class="pc-pinjam">
                     <div>
@@ -426,7 +485,6 @@ function labelPinjam(string $s): array {
                     </div>
 
                     <div class="pinjam-actions">
-                        <!-- Tombol hubungi penyewa -->
                         <?php if (!empty($p['wa_penyewa'])): ?>
                         <a href="https://wa.me/<?= preg_replace('/[^0-9]/','', $p['wa_penyewa']) ?>?text=Halo+<?= urlencode($p['penyewa']) ?>+pesananmu+sudah+dikonfirmasi"
                            target="_blank" class="btn-wa-owner">
@@ -434,7 +492,6 @@ function labelPinjam(string $s): array {
                         </a>
                         <?php endif; ?>
 
-                        <!-- Ubah status -->
                         <?php if ($spj === 'belum_mulai'): ?>
                             <form method="POST" action="actions/update_status_pinjam.php" style="display:contents">
                                 <input type="hidden" name="rental_id" value="<?= $p['id'] ?>">
@@ -460,6 +517,13 @@ function labelPinjam(string $s): array {
                                 <i class="ti ti-circle-check"></i> Peminjaman Selesai
                             </span>
                         <?php endif; ?>
+
+                        <?php if (canOwnerReport($p)): ?>
+                            <button type="button" class="btn-status btn-report-owner"
+                                    onclick="openReportModal(<?= (int) $p['id'] ?>, '<?= htmlspecialchars(addslashes($p['nama_barang'])) ?>', '<?= htmlspecialchars(addslashes($p['penyewa'])) ?>')">
+                                <i class="ti ti-flag"></i> Laporkan Penyewa
+                            </button>
+                        <?php endif; ?>
                     </div>
                 </div>
                 <?php endif; ?>
@@ -470,6 +534,40 @@ function labelPinjam(string $s): array {
         <?php endif; ?>
     <?php endif; ?>
 
+</div>
+
+<!-- REPORT MODAL (shared untuk semua card pesanan masuk) -->
+<div id="reportModal" class="report-modal-overlay">
+    <div class="report-modal">
+        <div class="report-modal-header">
+            <h3><i class="ti ti-flag"></i> Laporkan Penyewa</h3>
+            <button type="button" class="report-close" onclick="closeReportModal()"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="report-target-name" id="reportTargetName"></div>
+
+        <form action="actions/report.php" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="target_id" id="reportTargetId" value="">
+
+            <div class="report-field">
+                <label>Alasan Laporan</label>
+                <input type="text" name="reason" required maxlength="255" placeholder="Contoh: Barang tidak dikembalikan">
+            </div>
+
+            <div class="report-field">
+                <label>Detail Tambahan (opsional)</label>
+                <textarea name="detail" rows="4" placeholder="Jelaskan lebih lanjut masalah yang kamu alami..."></textarea>
+            </div>
+
+            <div class="report-field">
+                <label>Upload Bukti (opsional)</label>
+                <input type="file" name="bukti" accept="image/*">
+            </div>
+
+            <button type="submit" class="btn-submit-report">
+                <i class="ti ti-send"></i> Kirim Laporan
+            </button>
+        </form>
+    </div>
 </div>
 
 <script>
@@ -488,4 +586,17 @@ function openEdit(b) {
 function closeEdit() {
     document.getElementById('editFormWrap').classList.remove('show');
 }
+
+function openReportModal(rentalId, namaBarang, namaPenyewa) {
+    document.getElementById('reportTargetId').value = rentalId;
+    document.getElementById('reportTargetName').innerHTML =
+        'Melaporkan penyewa <strong>' + namaPenyewa + '</strong> untuk pesanan <strong>' + namaBarang + '</strong>';
+    document.getElementById('reportModal').classList.add('active');
+}
+function closeReportModal() {
+    document.getElementById('reportModal').classList.remove('active');
+}
+document.getElementById('reportModal').addEventListener('click', function(e) {
+    if (e.target === this) closeReportModal();
+});
 </script>

@@ -95,12 +95,10 @@ function canBeReported(array $r): bool {
 <style>
     .ps-wrap { max-width: 900px; margin: 0 auto; padding: 8px 0 60px; }
 
-    /* ── Header ── */
     .ps-header { margin-bottom: 24px; }
     .ps-title { font-size: 24px; font-weight: 800; color: #1a1d2e; }
     .ps-sub   { font-size: 13px; color: #6b7280; margin-top: 4px; }
 
-    /* ── Tabs ── */
     .tab-bar {
         display: flex; gap: 6px; margin-bottom: 20px;
         overflow-x: auto; padding-bottom: 2px;
@@ -123,7 +121,6 @@ function canBeReported(array $r): bool {
         border-radius: 20px; padding: 1px 7px;
     }
 
-    /* ── Card list ── */
     .order-list { display: flex; flex-direction: column; gap: 14px; }
 
     .order-card {
@@ -132,7 +129,6 @@ function canBeReported(array $r): bool {
     }
     .order-card:hover { box-shadow: 0 4px 20px rgba(61,75,255,0.08); }
 
-    /* Top strip warna per status */
     .order-card.s-pending       { border-top: 3px solid #fed7aa; }
     .order-card.s-konfirmasi    { border-top: 3px solid #fde68a; }
     .order-card.s-lunas         { border-top: 3px solid #bbf7d0; }
@@ -170,7 +166,6 @@ function canBeReported(array $r): bool {
     .order-total { font-size: 16px; font-weight: 800; color: #3d4bff; }
     .order-id    { font-size: 11px; color: #9ca3af; }
 
-    /* Status badges */
     .sbadge {
         display: inline-flex; align-items: center; gap: 5px;
         font-size: 11.5px; font-weight: 700;
@@ -183,7 +178,6 @@ function canBeReported(array $r): bool {
     .s-pinjam     { background: #eff6ff; color: #2563eb; border: 1px solid #93c5fd; }
     .s-selesai    { background: #f4f5f7; color: #6b7280; border: 1px solid #d1d5db; }
 
-    /* Order footer */
     .order-footer {
         display: flex; align-items: center; justify-content: space-between;
         padding: 12px 18px; gap: 10px; flex-wrap: wrap;
@@ -212,7 +206,6 @@ function canBeReported(array $r): bool {
     .btn-report-sm { background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; }
     .btn-report-sm:hover { background: #fee2e2; }
 
-    /* Timeline strip (khusus sedang dipinjam) */
     .timeline-strip {
         background: #eff6ff; border-top: 1px solid #dbeafe;
         padding: 10px 18px;
@@ -226,7 +219,6 @@ function canBeReported(array $r): bool {
     .timeline-bar { height: 100%; background: #3d4bff; border-radius: 20px; }
     .timeline-text { white-space: nowrap; font-weight: 600; }
 
-    /* Empty state */
     .empty-state {
         text-align: center; padding: 64px 20px; color: #9ca3af;
         background: #fff; border: 1px solid #e5e7eb; border-radius: 16px;
@@ -281,13 +273,20 @@ function canBeReported(array $r): bool {
         display: block; font-size: 12.5px; font-weight: 700;
         color: #1a1d2e; margin-bottom: 6px;
     }
-    .report-field select, .report-field textarea {
+    .report-field textarea {
         width: 100%; padding: 10px 12px;
         border: 1.5px solid #e5e7eb; border-radius: 10px;
         font-family: inherit; font-size: 13.5px; color: #1a1d2e;
         resize: vertical;
     }
-    .report-field select:focus, .report-field textarea:focus {
+    .report-field input[type="text"] {
+        width: 100%; padding: 10px 12px;
+        border: 1.5px solid #e5e7eb; border-radius: 10px;
+        font-family: inherit; font-size: 13.5px; color: #1a1d2e;
+    }
+    .report-field input[type="file"] { font-size: 13px; }
+    .report-field input[type="text"]:focus,
+    .report-field textarea:focus {
         outline: none; border-color: #dc2626;
     }
     .btn-submit-report {
@@ -357,14 +356,12 @@ function canBeReported(array $r): bool {
             $tot  = $r['total_harga'] ?: ($dur * $r['harga']);
             $g    = resolveGambarItem($r['gambar']);
 
-            // Class card berdasarkan status
             if ($spj === 'selesai')                $cardClass = 's-selesai';
             elseif ($spj === 'sedang_dipinjam')    $cardClass = 's-pinjam';
             elseif ($sp === 'lunas')               $cardClass = 's-lunas';
             elseif ($sp === 'menunggu_konfirmasi') $cardClass = 's-konfirmasi';
             else                                   $cardClass = 's-pending';
 
-            // Progress bar untuk sedang dipinjam
             $progress = 0;
             if ($spj === 'sedang_dipinjam') {
                 $now      = time();
@@ -378,7 +375,6 @@ function canBeReported(array $r): bool {
         ?>
         <div class="order-card <?= $cardClass ?>">
 
-            <!-- Main row -->
             <div class="order-main">
                 <div class="order-thumb">
                     <?php if ($g): ?>
@@ -409,7 +405,6 @@ function canBeReported(array $r): bool {
                 </div>
             </div>
 
-            <!-- Progress bar (sedang dipinjam) -->
             <?php if ($spj === 'sedang_dipinjam'): ?>
             <div class="timeline-strip">
                 <i class="ti ti-clock-play"></i>
@@ -420,7 +415,6 @@ function canBeReported(array $r): bool {
             </div>
             <?php endif; ?>
 
-            <!-- Footer: tanggal + actions -->
             <div class="order-footer">
                 <div class="order-dates">
                     <i class="ti ti-calendar-event"></i>
@@ -430,7 +424,6 @@ function canBeReported(array $r): bool {
                 </div>
 
                 <div class="order-actions">
-                    <!-- Tombol sesuai status -->
                     <?php if ($sp === 'pending'): ?>
                         <a href="index.php?page=pembayaran&rental_id=<?= $r['id'] ?>"
                            class="btn-sm btn-bayar-sm">
@@ -462,7 +455,6 @@ function canBeReported(array $r): bool {
                         </a>
                     <?php endif; ?>
 
-                    <!-- Tombol Laporkan (muncul setelah lunas / sedang dipinjam / selesai) -->
                     <?php if (canBeReported($r)): ?>
                         <button type="button" class="btn-sm btn-report-sm"
                                 onclick="openReportModal(<?= (int) $r['id'] ?>, '<?= htmlspecialchars(addslashes($r['nama_barang'])) ?>', '<?= htmlspecialchars(addslashes($r['pemilik'])) ?>')">
@@ -488,25 +480,22 @@ function canBeReported(array $r): bool {
         </div>
         <div class="report-target-name" id="reportTargetName"></div>
 
-        <form action="actions/report.php" method="POST">
-            <input type="hidden" name="type" value="transaksi">
+        <form action="actions/report.php" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="target_id" id="reportTargetId" value="">
 
             <div class="report-field">
                 <label>Alasan Laporan</label>
-                <select name="reason" required>
-                    <option value="">-- Pilih alasan --</option>
-                    <option value="Barang tidak sesuai saat diterima">Barang tidak sesuai saat diterima</option>
-                    <option value="Barang rusak/cacat saat diterima">Barang rusak/cacat saat diterima</option>
-                    <option value="Pemilik tidak responsif">Pemilik tidak responsif</option>
-                    <option value="Dugaan penipuan">Dugaan penipuan</option>
-                    <option value="Lainnya">Lainnya</option>
-                </select>
+                <input type="text" name="reason" required maxlength="255" placeholder="Contoh: Barang tidak sesuai deskripsi">
             </div>
 
             <div class="report-field">
                 <label>Detail Tambahan (opsional)</label>
                 <textarea name="detail" rows="4" placeholder="Jelaskan lebih lanjut masalah yang kamu alami..."></textarea>
+            </div>
+
+            <div class="report-field">
+                <label>Upload Bukti (opsional)</label>
+                <input type="file" name="bukti" accept="image/*">
             </div>
 
             <button type="submit" class="btn-submit-report">
