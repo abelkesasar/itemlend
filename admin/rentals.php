@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ── Stats
 $pending_users       = $conn->query("SELECT COUNT(*) FROM users WHERE status='pending'")->fetchColumn();
 $total_rentals       = $conn->query("SELECT COUNT(*) FROM rentals")->fetchColumn();
-$total_revenue       = $conn->query("SELECT COALESCE(SUM(total_harga),0) FROM rentals WHERE status_pembayaran='lunas'")->fetchColumn();
+$total_revenue = $conn->query("SELECT COALESCE(SUM(total_harga),0) FROM rentals WHERE status_pembayaran='lunas' AND (status_refund IS NULL OR status_refund = 'tidak_ada')")->fetchColumn();
 $menunggu_konfirmasi = $conn->query("SELECT COUNT(*) FROM rentals WHERE status_pembayaran='menunggu_konfirmasi'")->fetchColumn();
 
 // ── Tab & Filter

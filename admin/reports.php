@@ -105,10 +105,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $refundKe = $refund;
                 $conn->prepare("
                     UPDATE rentals
-                    SET status_refund  = 'selesai',
-                        refund_ke      = ?,
-                        catatan_refund = ?,
-                        refund_by      = ?
+                    SET status_refund   = 'selesai',
+                        status_pencairan = 'sudah_dicairkan',
+                        refund_ke       = ?,
+                        catatan_refund  = ?,
+                        refund_by       = ?,
+                        refund_at       = NOW()
                     WHERE id = ?
                 ")->execute([$refundKe, $catatan ?: null, $admin_id, $rental_id]);
             }
@@ -153,6 +155,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($adaLain === 0) {
                     $conn->prepare("UPDATE rentals SET status_pencairan = 'belum_dicairkan' WHERE id = ? AND status_pencairan = 'ada_laporan'")->execute([$rental_id]);
                 }
+            }
+
+            // ── Tutup rental: set status_pinjam = selesai ──
+            if ($sanksi !== 'dismissed') {
+                $conn->prepare("UPDATE rentals SET status_pinjam = 'selesai' WHERE id = ? AND status_pinjam != 'selesai'")->execute([$rental_id]);
             }
         }
 
