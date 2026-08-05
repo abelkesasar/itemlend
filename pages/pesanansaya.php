@@ -8,6 +8,18 @@ if (!isset($_SESSION['user'])) {
     exit;
 }
 
+function resolveGambarItem($gambarRaw) {
+    if (empty($gambarRaw)) return null;
+    $list = json_decode($gambarRaw, true);
+    if (is_array($list) && !empty($list[0]) && file_exists("uploads/" . $list[0])) {
+        return "uploads/" . $list[0];
+    }
+    if (!is_array($list) && file_exists("uploads/" . $gambarRaw)) {
+        return "uploads/" . $gambarRaw;
+    }
+    return null;
+}
+
 $user_id = (int) $_SESSION['user'];
 $tab     = $_GET['tab'] ?? 'semua';
 
@@ -343,8 +355,7 @@ function canBeReported(array $r): bool {
             $tgl2 = date('d M Y', strtotime($r['tanggal_selesai']));
             $dur  = (int) ((strtotime($r['tanggal_selesai']) - strtotime($r['tanggal_mulai'])) / 86400);
             $tot  = $r['total_harga'] ?: ($dur * $r['harga']);
-            $g    = (!empty($r['gambar']) && file_exists("uploads/".$r['gambar']))
-                    ? "uploads/".$r['gambar'] : null;
+            $g    = resolveGambarItem($r['gambar']);
 
             // Class card berdasarkan status
             if ($spj === 'selesai')                $cardClass = 's-selesai';

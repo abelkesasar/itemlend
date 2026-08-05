@@ -110,7 +110,9 @@
         background: #3d4bff; color: #fff;
         display: flex; align-items: center; justify-content: center;
         font-size: 12px; font-weight: 800; flex-shrink: 0;
+        overflow: hidden;
     }
+    .user-av img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
     .user-trigger-name {
         font-size: 13px; font-weight: 600; color: #1a1d2e;
         max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -250,6 +252,18 @@
                 $init = strtoupper(substr($unm, 0, 1));
                 $role = $_SESSION['role'] ?? 'user';
 
+                // Ambil foto profil terbaru langsung dari database (bukan dari session,
+                // supaya selalu ter-update begitu user ganti foto)
+                $foto_profil_nav = null;
+                try {
+                    $fp = $conn->prepare("SELECT foto_profil FROM users WHERE id = ?");
+                    $fp->execute([$_SESSION['user']]);
+                    $fpRow = $fp->fetch(PDO::FETCH_ASSOC);
+                    if (!empty($fpRow['foto_profil']) && file_exists("uploads/" . $fpRow['foto_profil'])) {
+                        $foto_profil_nav = "uploads/" . $fpRow['foto_profil'];
+                    }
+                } catch (Exception $e) {}
+
                 $pending_saya = 0;
                 try {
                     $ps = $conn->prepare("
@@ -266,7 +280,13 @@
                     </a>
                 <div class="user-menu" id="userMenu">
                     <div class="user-trigger" onclick="toggleUserMenu()">
-                        <div class="user-av"><?= $init ?></div>
+                        <div class="user-av">
+                            <?php if ($foto_profil_nav): ?>
+                                <img src="<?= htmlspecialchars($foto_profil_nav) ?>" alt="">
+                            <?php else: ?>
+                                <?= $init ?>
+                            <?php endif; ?>
+                        </div>
                         <span class="user-trigger-name"><?= htmlspecialchars($unm) ?></span>
                         <i class="ti ti-chevron-down user-chevron"></i>
                     </div>

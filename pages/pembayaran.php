@@ -29,8 +29,18 @@ $durasi = (int) ((strtotime($rental['tanggal_selesai']) - strtotime($rental['tan
 $total  = $rental['total_harga'] ?: ($durasi * $rental['harga']);
 $status = $rental['status_pembayaran'] ?? 'pending';
 
-$gambar = (!empty($rental['gambar']) && file_exists("uploads/" . $rental['gambar']))
-    ? "uploads/" . $rental['gambar'] : null;
+function resolveGambarItem($gambarRaw) {
+    if (empty($gambarRaw)) return null;
+    $list = json_decode($gambarRaw, true);
+    if (is_array($list) && !empty($list[0]) && file_exists("uploads/" . $list[0])) {
+        return "uploads/" . $list[0];
+    }
+    if (!is_array($list) && file_exists("uploads/" . $gambarRaw)) {
+        return "uploads/" . $gambarRaw;
+    }
+    return null;
+}
+$gambar = resolveGambarItem($rental['gambar']);
 
 // ── Metode pembayaran yang tersedia
 // Ganti nomor rekening / nama sesuai milik kamu

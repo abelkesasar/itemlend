@@ -21,8 +21,18 @@ $item = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$item) { echo "Barang tidak ditemukan"; exit; }
 
-$gambar = (!empty($item['gambar']) && file_exists("uploads/" . $item['gambar']))
-    ? "uploads/" . $item['gambar'] : null;
+function resolveGambarItem($gambarRaw) {
+    if (empty($gambarRaw)) return null;
+    $list = json_decode($gambarRaw, true);
+    if (is_array($list) && !empty($list[0]) && file_exists("uploads/" . $list[0])) {
+        return "uploads/" . $list[0];
+    }
+    if (!is_array($list) && file_exists("uploads/" . $gambarRaw)) {
+        return "uploads/" . $gambarRaw;
+    }
+    return null;
+}
+$gambar = resolveGambarItem($item['gambar']);
 
 $harga = $item['harga'] ?? 0;
 ?>
