@@ -2,6 +2,43 @@
 session_start();
 require 'config/db.php';
 
+// ── Cek validitas session di SETIAP request ──
+// Kalau admin ban/cooldown-kan user ini SAAT dia lagi login (sesi masih aktif),
+// paksa logout begitu dia klik/pindah halaman apa saja.
+if (isset($_SESSION['user']) && ($_SESSION['role'] ?? '') !== 'admin') {
+    $stmtCheck = $conn->prepare("SELECT status, banned_until FROM users WHERE id = ?");
+    $stmtCheck->execute([$_SESSION['user']]);
+    $meCheck = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+    if (!$meCheck) {
+        // User sudah gak ada lagi di database (misal dihapus admin)
+        session_unset();
+        session_destroy();
+        echo "<script>window.location='index.php?page=login';</script>";
+        exit;
+    }
+
+    if ($meCheck['status'] === 'cooldown') {
+        $now = new DateTime();
+        $bannedUntil = $meCheck['banned_until'] ? new DateTime($meCheck['banned_until']) : null;
+
+        if ($bannedUntil === null || $now < $bannedUntil) {
+            // Masih dalam masa sanksi (atau ban permanen kalau banned_until NULL)
+            session_unset();
+            session_destroy();
+            echo "<script>
+                alert('Akun kamu terkena sanksi dan sudah dikeluarkan dari sesi ini. Silakan login ulang untuk melihat sisa waktu sanksi.');
+                window.location='index.php?page=login';
+            </script>";
+            exit;
+        } else {
+            // Cooldown sudah lewat waktunya → auto pulihkan (sama seperti logic di actions/login.php)
+            $update = $conn->prepare("UPDATE users SET status = 'approved', banned_until = NULL WHERE id = ?");
+            $update->execute([$_SESSION['user']]);
+        }
+    }
+}
+
 $page = $_GET['page'] ?? 'home';
 ?>
 <!DOCTYPE html>
