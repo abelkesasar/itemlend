@@ -5,6 +5,10 @@ import 'register_screen.dart';
 import 'tambah_barang_screen.dart';
 import 'profile_screen.dart';
 import 'detail_barang_screen.dart';
+import 'toko_saya_screen.dart';
+import 'pesanan_saya_screen.dart';
+import 'admin_login_screen.dart';
+import 'admin_dashboard_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -16,6 +20,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   Map<String, String?> _userData = {};
   bool _isLoggedIn = false;
+  bool _isAdmin = false;
   int? _loggedInUserId;
 
   List<dynamic> _items = [];
@@ -37,11 +42,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final token = await ApiService.getToken();
     final data = await ApiService.getUserData();
     final userId = await ApiService.getUserId();
+    final adminLoggedIn = await ApiService.isAdminLoggedIn();
     if (!mounted) return;
     setState(() {
       _isLoggedIn = token != null && token.isNotEmpty;
       _userData = data;
       _loggedInUserId = userId;
+      _isAdmin = adminLoggedIn;
     });
   }
 
@@ -193,7 +200,22 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: EdgeInsets.zero,
               onSelected: (value) {
                 if (value == 'logout') _handleLogout();
-                if (value == 'profile') _goToJualSewa(); // sementara ke alur profil/jual-sewa
+                if (value == 'profile') {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfileScreen()));
+                }
+                if (value == 'tokosaya') {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const TokoSayaScreen()));
+                }
+                if (value == 'pesanansaya') {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const PesananSayaScreen()));
+                }
+                if (value == 'admin') {
+                  if (_isAdmin) {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminDashboardScreen()));
+                  } else {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminLoginScreen()));
+                  }
+                }
               },
               itemBuilder: (context) => [
                 PopupMenuItem(
@@ -205,6 +227,44 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const PopupMenuDivider(),
                 const PopupMenuItem(value: 'profile', child: Text('Profil Saya')),
+                const PopupMenuItem(
+                  value: 'tokosaya',
+                  child: Row(
+                    children: [
+                      Icon(Icons.store_outlined, size: 18),
+                      SizedBox(width: 8),
+                      Text('Toko Saya'),
+                    ],
+                  ),
+                ),
+                const PopupMenuItem(
+                  value: 'pesanansaya',
+                  child: Row(
+                    children: [
+                      Icon(Icons.shopping_bag_outlined, size: 18),
+                      SizedBox(width: 8),
+                      Text('Pesanan Saya'),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
+                PopupMenuItem(
+                  value: 'admin',
+                  child: Row(
+                    children: [
+                      Icon(
+                        _isAdmin ? Icons.admin_panel_settings : Icons.lock_outline,
+                        size: 18,
+                        color: const Color(0xFF3D4BFF),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _isAdmin ? 'Admin Panel' : 'Login Admin',
+                        style: const TextStyle(color: Color(0xFF3D4BFF), fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
                 const PopupMenuItem(value: 'logout', child: Text('Logout')),
               ],
               child: Padding(

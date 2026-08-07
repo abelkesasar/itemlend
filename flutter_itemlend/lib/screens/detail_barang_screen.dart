@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/api_service.dart';
+import 'sewa_screen.dart';
 
 const Color _brandColor = Color(0xFF3D4BFF);
 
@@ -533,7 +534,15 @@ class _DetailBarangScreenState extends State<DetailBarangScreen> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: () => _showPlaceholder('Fitur sewa'),
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => SewaScreen(itemId: item['id'])),
+          );
+          if (result == true && mounted) {
+            _loadDetail(); // Refresh data setelah pembayaran dikirim
+          }
+        },
         style: ElevatedButton.styleFrom(
           backgroundColor: _brandColor,
           foregroundColor: Colors.white,

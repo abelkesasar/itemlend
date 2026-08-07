@@ -98,10 +98,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     if (result['success'] == true) {
       final lengkap = result['data']?['metode_pembayaran_lengkap'] ?? false;
+
+      // Cek apakah metode pembayaran baru saja lengkap (sebelumnya belum, sekarang sudah)
+      final baruLengkap = lengkap && !_metodePembayaranLengkap;
+
       setState(() => _metodePembayaranLengkap = lengkap);
 
-      // Kalau metode pembayaran baru saja lengkap, lanjut ke Tambah Barang
-      if (lengkap) {
+      // Kalau baru saja lengkap pertama kali, lanjut ke Tambah Barang
+      if (baruLengkap) {
         final tambahResult = await Navigator.push(
           context,
           MaterialPageRoute(builder: (_) => const TambahBarangScreen()),
