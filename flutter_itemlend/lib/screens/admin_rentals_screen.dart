@@ -242,7 +242,7 @@ class _AdminRentalsScreenState extends State<AdminRentalsScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                               decoration: BoxDecoration(
-                                color: isActive ? Colors.white.withOpacity(0.25) : const Color(0xFFF3F4F6),
+                                color: isActive ? Colors.white.withValues(alpha: 0.25) : const Color(0xFFF3F4F6),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
@@ -308,9 +308,9 @@ class _AdminRentalsScreenState extends State<AdminRentalsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.2)),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Column(
           children: [
@@ -375,7 +375,7 @@ class _AdminRentalsScreenState extends State<AdminRentalsScreen> {
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: Image.network(imageUrl, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(Icons.shopping_bag, color: Color(0xFFC9CCD4), size: 20),
+                            errorBuilder: (_, _, _) => const Icon(Icons.shopping_bag, color: Color(0xFFC9CCD4), size: 20),
                           ),
                         )
                       : const Center(child: Icon(Icons.shopping_bag, color: Color(0xFFC9CCD4), size: 20)),
@@ -485,7 +485,7 @@ class _AdminRentalsScreenState extends State<AdminRentalsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(text, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
@@ -539,7 +539,7 @@ class _AdminRentalsScreenState extends State<AdminRentalsScreen> {
                       child: Image.network(
                         imageUrl,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const SizedBox(
+                        errorBuilder: (_, _, _) => const SizedBox(
                           height: 120,
                           child: Center(child: Text('Gagal memuat gambar')),
                         ),

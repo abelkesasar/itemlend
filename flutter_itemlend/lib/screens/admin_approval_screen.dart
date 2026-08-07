@@ -162,7 +162,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> {
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(10),
                           child: Image.network(imageUrl, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2, color: Color(0xFFC9CCD4)),
+                            errorBuilder: (_, _, _) => const Icon(Icons.inventory_2, color: Color(0xFFC9CCD4)),
                           ),
                         )
                       : const Center(child: Icon(Icons.inventory_2, color: Color(0xFFC9CCD4))),

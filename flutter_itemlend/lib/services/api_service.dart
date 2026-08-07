@@ -665,7 +665,7 @@ class ApiService {
         body: jsonEncode({
           'rental_id': rentalId,
           'aksi': aksi,
-          if (catatan != null) 'catatan': catatan,
+          'catatan': ?catatan,
         }),
       );
       return jsonDecode(response.body);

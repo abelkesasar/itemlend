@@ -166,7 +166,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(text, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
@@ -300,9 +300,9 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.06),
+          color: color.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.15)),
+          border: Border.all(color: color.withValues(alpha: 0.15)),
         ),
         child: Column(
           children: [
@@ -384,7 +384,7 @@ class _AdminUserDetailScreenState extends State<AdminUserDetailScreen> {
           subtitle: Text('${it['kategori'] ?? '-'} · Rp ${_formatRp(it['harga'] ?? 0)}/hr', style: const TextStyle(fontSize: 11)),
           trailing: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(color: sc.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(color: sc.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
             child: Text(status, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: sc)),
           ),
         );

@@ -24,11 +24,11 @@ class _TokoSayaScreenState extends State<TokoSayaScreen> {
 
   List<dynamic> _items = [];
   Map<String, dynamic> _statsBarang = {};
-  String _filterStatus = 'Semua';
+  final String _filterStatus = 'Semua';
 
   List<dynamic> _rentals = [];
   Map<String, dynamic> _statsPesanan = {};
-  String _rentalFilter = 'Semua';
+  final String _rentalFilter = 'Semua';
 
   @override
   void initState() {
@@ -190,7 +190,7 @@ class _TokoSayaScreenState extends State<TokoSayaScreen> {
                 const Text('Alasan Laporan', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: selectedReason,
+                  initialValue: selectedReason,
                   items: reasons.map((r) => DropdownMenuItem(value: r, child: Text(r, style: const TextStyle(fontSize: 13)))).toList(),
                   onChanged: (val) {
                     if (val != null) setDialogState(() => selectedReason = val);

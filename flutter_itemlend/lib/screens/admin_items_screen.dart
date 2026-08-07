@@ -170,7 +170,7 @@ class _AdminItemsScreenState extends State<AdminItemsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isActive ? Colors.white.withOpacity(0.25) : const Color(0xFFF3F4F6),
+                  color: isActive ? Colors.white.withValues(alpha: 0.25) : const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -228,7 +228,7 @@ class _AdminItemsScreenState extends State<AdminItemsScreen> {
               child: imageUrl != null
                   ? ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                      child: Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.inventory_2, color: Color(0xFFC9CCD4))),
+                      child: Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => const Icon(Icons.inventory_2, color: Color(0xFFC9CCD4))),
                     )
                   : const Center(child: Icon(Icons.inventory_2, size: 36, color: Color(0xFFC9CCD4))),
             ),

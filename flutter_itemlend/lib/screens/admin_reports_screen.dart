@@ -154,9 +154,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.2)),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Column(
           children: [
@@ -188,7 +188,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isActive ? Colors.white.withOpacity(0.25) : const Color(0xFFF3F4F6),
+                  color: isActive ? Colors.white.withValues(alpha: 0.25) : const Color(0xFFF3F4F6),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text('$count', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: isActive ? Colors.white : const Color(0xFF6B7280))),
@@ -207,7 +207,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         children: [
           CircleAvatar(
             radius: 16,
-            backgroundColor: color.withOpacity(0.1),
+            backgroundColor: color.withValues(alpha: 0.1),
             child: Text(name.substring(0, 1).toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
           ),
           const SizedBox(width: 10),
@@ -275,7 +275,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFFDE68A)),
-        boxShadow: [BoxShadow(color: const Color(0xFFF59E0B).withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: const Color(0xFFF59E0B).withValues(alpha: 0.08), blurRadius: 6, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,7 +286,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFFFFFBEB),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-              border: Border(bottom: BorderSide(color: const Color(0xFFFDE68A).withOpacity(0.5))),
+              border: Border(bottom: BorderSide(color: const Color(0xFFFDE68A).withValues(alpha: 0.5))),
             ),
             child: Row(
               children: [
@@ -385,7 +385,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                         height: 140,
                         width: double.infinity,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(
+                        errorBuilder: (_, _, _) => Container(
                           height: 60,
                           color: const Color(0xFFF5F6FA),
                           child: const Center(child: Text('Gagal memuat bukti')),
@@ -528,7 +528,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                         height: 80,
                         width: 80,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const SizedBox(width: 80, height: 80, child: Center(child: Icon(Icons.broken_image))),
+                        errorBuilder: (_, _, _) => const SizedBox(width: 80, height: 80, child: Center(child: Icon(Icons.broken_image))),
                       ),
                     ),
                   ),
@@ -544,7 +544,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
   Widget _personAvatar(String name, Color color) {
     return CircleAvatar(
       radius: 12,
-      backgroundColor: color.withOpacity(0.1),
+      backgroundColor: color.withValues(alpha: 0.1),
       child: Text(name.substring(0, 1).toUpperCase(), style: TextStyle(fontSize: 9, fontWeight: FontWeight.w700, color: color)),
     );
   }
@@ -566,7 +566,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(text, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color)),
@@ -614,7 +614,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.network(url, fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const SizedBox(height: 120, child: Center(child: Text('Gagal memuat gambar'))),
+                  errorBuilder: (_, _, _) => const SizedBox(height: 120, child: Center(child: Text('Gagal memuat gambar'))),
                 ),
               ),
             ),
