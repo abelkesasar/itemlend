@@ -372,6 +372,11 @@ switch ($page) {
         echo '</div>';
         break;
 
+    case 'keuangan':
+        echo '<div class="main-wrap">';
+        require 'pages/keuangan.php';
+        echo '</div>';
+        break;
     case 'barangsaya':
         echo '<div class="main-wrap">';
         require 'pages/barangsaya.php';

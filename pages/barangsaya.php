@@ -115,8 +115,6 @@ function canOwnerReport(array $p): bool {
     .barang-actions { display: flex; gap: 6px; margin-top: auto; }
     .btn-edit-sm { flex: 1; display: flex; align-items: center; justify-content: center; gap: 5px; padding: 7px; border-radius: 8px; font-size: 12px; font-weight: 600; background: #eef0ff; color: #3d4bff; text-decoration: none; transition: background 0.15s; }
     .btn-edit-sm:hover { background: #dde0ff; }
-    .btn-del-sm { display: flex; align-items: center; justify-content: center; padding: 7px 10px; border-radius: 8px; font-size: 13px; background: #fff5f5; color: #dc2626; border: 1px solid #fecaca; transition: background 0.15s; cursor: pointer; font-family: inherit; }
-    .btn-del-sm:hover { background: #fee2e2; }
 
     .edit-form-wrap { background: #fff; border: 1.5px solid #3d4bff; border-radius: 16px; padding: 20px; margin-bottom: 14px; display: none; }
     .edit-form-wrap.show { display: block; }
@@ -377,11 +375,6 @@ function canOwnerReport(array $p): bool {
                            onclick="openEdit(<?= htmlspecialchars(json_encode($b)) ?>); return false;">
                             <i class="ti ti-edit"></i> Edit
                         </a>
-                        <form action="actions/delete_item.php" method="POST" style="display:contents"
-                              onsubmit="return confirm('Hapus barang ini?')">
-                            <input type="hidden" name="id" value="<?= $b['id'] ?>">
-                            <button type="submit" class="btn-del-sm"><i class="ti ti-trash"></i></button>
-                        </form>
                     </div>
                 </div>
             </div>
