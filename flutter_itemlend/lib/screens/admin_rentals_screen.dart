@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../services/api_service.dart';
 
 class AdminRentalsScreen extends StatefulWidget {
@@ -174,6 +175,7 @@ class _AdminRentalsScreenState extends State<AdminRentalsScreen> {
             },
             itemBuilder: (ctx) => [
               const PopupMenuItem(value: 'terbaru', child: Text('Terbaru')),
+              const PopupMenuItem(value: 'terlama', child: Text('Terlama')),
               const PopupMenuItem(value: 'termahal', child: Text('Harga Tertinggi')),
               const PopupMenuItem(value: 'termurah', child: Text('Harga Terendah')),
             ],
@@ -192,7 +194,7 @@ class _AdminRentalsScreenState extends State<AdminRentalsScreen> {
                 children: [
                   _statChip('Total', '${_stats['total'] ?? 0}', const Color(0xFF3D4BFF)),
                   const SizedBox(width: 8),
-                  _statChip('Konfirmasi', '${_stats['perlu_konfirmasi'] ?? 0}', const Color(0xFFF59E0B)),
+                  _statChip('Konfirmasi', '${_stats['menunggu_konfirmasi'] ?? 0}', const Color(0xFFF59E0B)),
                   const SizedBox(width: 8),
                   _statChip('Revenue', 'Rp${_formatRp(_stats['revenue'] ?? 0)}', const Color(0xFF16A34A)),
                 ],
@@ -339,12 +341,26 @@ class _AdminRentalsScreenState extends State<AdminRentalsScreen> {
     String? imageUrl;
     if (gambar != null && gambar.toString().isNotEmpty) {
       try {
-        final decoded = List<String>.from(gambar is List ? gambar : [gambar]);
-        if (decoded.isNotEmpty) imageUrl = 'http://10.0.2.2/itemlend/uploads/${decoded[0]}';
-      } catch (_) {}
+        List<String> files = [];
+        if (gambar is List) {
+          files = List<String>.from(gambar);
+        } else {
+          final decoded = jsonDecode(gambar.toString());
+          if (decoded is List) {
+            files = List<String>.from(decoded);
+          } else if (decoded is String) {
+            files = [decoded];
+          }
+        }
+        if (files.isNotEmpty) imageUrl = 'http://10.0.2.2/itemlend/uploads/${files[0]}';
+      } catch (_) {
+        imageUrl = 'http://10.0.2.2/itemlend/uploads/$gambar';
+      }
     }
 
     final isPendingKonfirmasi = statusBayar == 'menunggu_konfirmasi';
+    final isDitolak = statusBayar == 'ditolak';
+    final catatanAdmin = r['catatan_admin'] ?? '';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -437,6 +453,30 @@ class _AdminRentalsScreenState extends State<AdminRentalsScreen> {
                       Text('Lihat Bukti Pembayaran', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Color(0xFF3D4BFF))),
                     ],
                   ),
+                ),
+              ),
+            ],
+            // Admin note (for rejected payments)
+            if (isDitolak && catatanAdmin.toString().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFECACA)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, size: 14, color: Color(0xFFDC2626)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        'Alasan: $catatanAdmin',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF991B1B)),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

@@ -13,6 +13,7 @@ class AdminPencairanScreen extends StatefulWidget {
 class _AdminPencairanScreenState extends State<AdminPencairanScreen> {
   List<dynamic> _items = [];
   Map<String, dynamic> _stats = {};
+  Map<String, dynamic> _pendingReportsMap = {};
   bool _isLoading = true;
   int _tab = 0; // 0=belum, 1=sudah, 2=semua
   String _search = '';
@@ -33,6 +34,7 @@ class _AdminPencairanScreenState extends State<AdminPencairanScreen> {
         if (result['success'] == true) {
           _items = result['data']['rentals'] ?? [];
           _stats = result['data']['stats'] ?? {};
+          _pendingReportsMap = Map<String, dynamic>.from(result['data']['pending_reports_map'] ?? {});
         }
         _isLoading = false;
       });
@@ -268,7 +270,12 @@ class _AdminPencairanScreenState extends State<AdminPencairanScreen> {
     final statusPencairan = r['status_pencairan'] ?? 'belum_dicairkan';
     final buktiPencairan = r['bukti_pencairan'];
     final tanggalPencairan = r['tanggal_pencairan'];
-    final hasPendingReports = r['has_pending_reports'] == true;
+    final pendingCount = _pendingReportsMap[r['id'].toString()] ?? 0;
+    final hasPendingReports = pendingCount > 0;
+    final pemilikMetode = r['pemilik_metode'] ?? '-';
+    final pemilikPenyedia = r['pemilik_penyedia'] ?? '-';
+    final pemilikRekening = r['pemilik_rekening'] ?? '-';
+    final pemilikNamaRek = r['pemilik_nama_rek'] ?? '-';
 
     final total = _calcTotal(totalHarga, harga, mulai, selesai);
     final komisi = komisiAdmin ?? (total * 5 / 100).round();
@@ -416,14 +423,43 @@ class _AdminPencairanScreenState extends State<AdminPencairanScreen> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: const Color(0xFFFBBF24)),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.warning_amber, size: 16, color: Color(0xFFD97706)),
-                    SizedBox(width: 8),
+                    const Icon(Icons.warning_amber, size: 16, color: Color(0xFFD97706)),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Ada laporan pending — pencairan ditahan.',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF92400E)),
+                        'Ada $pendingCount laporan pending — pencairan ditahan.',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF92400E)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            // Payment method info (for belums)
+            if (isBelum) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: const Color(0xFFF8F9FF), borderRadius: BorderRadius.circular(8)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.account_balance, size: 14, color: Color(0xFF6B7280)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Transfer ke:', style: TextStyle(fontSize: 10, color: Color(0xFF9CA3AF))),
+                          Text(
+                            pemilikMetode.toLowerCase() == 'qris'
+                                ? 'QRIS ($pemilikPenyedia)'
+                                : '$pemilikPenyedia · $pemilikRekening a/n $pemilikNamaRek',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF374151)),
+                          ),
+                        ],
                       ),
                     ),
                   ],

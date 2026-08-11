@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../services/api_service.dart';
 
 class AdminApprovalScreen extends StatefulWidget {
@@ -50,6 +51,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(result['message'] ?? 'Selesai'), backgroundColor: Colors.green),
         );
+        await Future.delayed(const Duration(milliseconds: 300));
         _loadPending();
       }
     }
@@ -131,9 +133,21 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> {
     String? imageUrl;
     if (gambar != null && gambar.toString().isNotEmpty) {
       try {
-        final decoded = List<String>.from(gambar is List ? gambar : [gambar]);
-        if (decoded.isNotEmpty) imageUrl = 'http://10.0.2.2/itemlend/uploads/${decoded[0]}';
-      } catch (_) {}
+        List<String> files = [];
+        if (gambar is List) {
+          files = List<String>.from(gambar);
+        } else {
+          final decoded = jsonDecode(gambar.toString());
+          if (decoded is List) {
+            files = List<String>.from(decoded);
+          } else if (decoded is String) {
+            files = [decoded];
+          }
+        }
+        if (files.isNotEmpty) imageUrl = 'http://10.0.2.2/itemlend/uploads/${files[0]}';
+      } catch (_) {
+        imageUrl = 'http://10.0.2.2/itemlend/uploads/$gambar';
+      }
     }
 
     return Container(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
+import 'home_screen.dart';
 
 const Color _brandColor = Color(0xFF3D4BFF);
 
@@ -897,8 +898,9 @@ class _ProsesPembayaranScreenState extends State<ProsesPembayaranScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () => Navigator.of(context)
-                      .popUntil((route) => route.isFirst),
+                  onPressed: () => Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _brandColor,
                     foregroundColor: Colors.white,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../services/api_service.dart';
 import 'admin_approval_screen.dart';
 
@@ -15,6 +16,7 @@ class _AdminItemsScreenState extends State<AdminItemsScreen> {
   bool _isLoading = true;
   String _statusTab = 'approved';
   String _search = '';
+  String _sort = 'terbaru';
 
   @override
   void initState() {
@@ -24,7 +26,7 @@ class _AdminItemsScreenState extends State<AdminItemsScreen> {
 
   Future<void> _loadItems() async {
     setState(() => _isLoading = true);
-    final result = await ApiService.getAdminItems(status: _statusTab, search: _search);
+    final result = await ApiService.getAdminItems(status: _statusTab, search: _search, sort: _sort);
     if (mounted) {
       setState(() {
         if (result['success'] == true) {
@@ -76,6 +78,19 @@ class _AdminItemsScreenState extends State<AdminItemsScreen> {
                 ),
               ),
             ),
+          PopupMenuButton<String>(
+            onSelected: (v) {
+              setState(() => _sort = v);
+              _loadItems();
+            },
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(value: 'terbaru', child: Text('Terbaru')),
+              const PopupMenuItem(value: 'az', child: Text('A-Z')),
+              const PopupMenuItem(value: 'termurah', child: Text('Harga Terendah')),
+              const PopupMenuItem(value: 'termahal', child: Text('Harga Tertinggi')),
+            ],
+            icon: const Icon(Icons.sort, color: Color(0xFF6B7280)),
+          ),
         ],
       ),
       body: Column(
@@ -198,13 +213,24 @@ class _AdminItemsScreenState extends State<AdminItemsScreen> {
     String? imageUrl;
     if (gambar != null && gambar.toString().isNotEmpty) {
       try {
-        final decoded = List<String>.from(
-          gambar is List ? gambar : [gambar],
-        );
-        if (decoded.isNotEmpty) {
-          imageUrl = 'http://10.0.2.2/itemlend/uploads/${decoded[0]}';
+        List<String> files = [];
+        if (gambar is List) {
+          files = List<String>.from(gambar);
+        } else {
+          final decoded = jsonDecode(gambar.toString());
+          if (decoded is List) {
+            files = List<String>.from(decoded);
+          } else if (decoded is String) {
+            files = [decoded];
+          }
         }
-      } catch (_) {}
+        if (files.isNotEmpty) {
+          imageUrl = 'http://10.0.2.2/itemlend/uploads/${files[0]}';
+        }
+      } catch (_) {
+        // Fallback: treat as plain filename
+        imageUrl = 'http://10.0.2.2/itemlend/uploads/$gambar';
+      }
     }
 
     return Container(
